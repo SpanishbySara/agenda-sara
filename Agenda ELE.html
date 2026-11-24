@@ -1,0 +1,1095 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Agenda ELE</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: calendar canvas on the left, a narrow "cuaderno" sidebar (day tasks + weekly summary) on the right; stacks on phones. */
+:root{
+  --bg:#f4f6fb; --surface:#ffffff; --surface-2:#eef1f8; --line:#dde2ee; --line-2:#e9ecf4;
+  --ink:#1b2140; --ink-2:#4d5577; --ink-3:#7f87a6;
+  --accent:#2b47c9; --accent-ink:#ffffff; --accent-soft:#e3e8fb;
+  --ok:#2f8a5b; --warn:#b8641a; --danger:#c23b48;
+  --t-clase:#2b47c9; --t-particular:#0f8a83; --t-prep:#b87910; --t-reunion:#8a3fb0; --t-examen:#c23b48; --t-otro:#5d6585;
+  --font-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius:10px; --hour:52px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11142a; --surface:#181c36; --surface-2:#20253f; --line:#2c3252; --line-2:#252a47;
+  --ink:#e8ebfa; --ink-2:#b1b7d6; --ink-3:#7f87a8;
+  --accent:#8ea0ff; --accent-ink:#11142a; --accent-soft:#272f5e;
+  --ok:#5fc28d; --warn:#e3a05a; --danger:#f07882;
+  --t-clase:#8ea0ff; --t-particular:#45c7bd; --t-prep:#e2b04b; --t-reunion:#c58bea; --t-examen:#f07882; --t-otro:#a2a9c8;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11142a; --surface:#181c36; --surface-2:#20253f; --line:#2c3252; --line-2:#252a47;
+  --ink:#e8ebfa; --ink-2:#b1b7d6; --ink-3:#7f87a8;
+  --accent:#8ea0ff; --accent-ink:#11142a; --accent-soft:#272f5e;
+  --ok:#5fc28d; --warn:#e3a05a; --danger:#f07882;
+  --t-clase:#8ea0ff; --t-particular:#45c7bd; --t-prep:#e2b04b; --t-reunion:#c58bea; --t-examen:#f07882; --t-otro:#a2a9c8;
+  color-scheme:dark}
+
+/* Paletas elegidas por la usuaria: se aplican siempre, con independencia del modo claro/oscuro del sistema */
+html:root[data-palette="beige"]{
+  --bg:#3a2518; --surface:#48301f; --surface-2:#563b28; --line:#6b4b35; --line-2:#5c3f2c;
+  --ink:#f4e9d8; --ink-2:#dcc7ab; --ink-3:#b59a7e;
+  --accent:#e6cfa8; --accent-ink:#3a2518; --accent-soft:#5e4430;
+  --ok:#a3cf84; --warn:#eaa964; --danger:#f19189; color-scheme:dark}
+html:root[data-palette="celeste"]{
+  --bg:#d6eaf6; --surface:#f5fafd; --surface-2:#e2eff8; --line:#b6d4e7; --line-2:#cbe1ef;
+  --ink:#38141f; --ink-2:#673845; --ink-3:#8c6973;
+  --accent:#7a1e33; --accent-ink:#ffffff; --accent-soft:#f1dbe1;
+  --ok:#2d7752; --warn:#ad631b; --danger:#b5263b; color-scheme:light}
+html:root[data-palette="blanco"]{
+  --bg:#ffffff; --surface:#ffffff; --surface-2:#f2f2f2; --line:#d6d6d6; --line-2:#e8e8e8;
+  --ink:#000000; --ink-2:#333333; --ink-3:#6e6e6e;
+  --accent:#111111; --accent-ink:#ffffff; --accent-soft:#ececec;
+  --ok:#2e7d4f; --warn:#a85d14; --danger:#c0303b; color-scheme:light}
+.palopts{display:flex;flex-direction:column;gap:8px}
+.palopt{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px}
+.palopt:hover{background:var(--surface-2)}
+.palopt[aria-checked="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.palsw{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg, var(--a) 50%, var(--b) 50%);box-shadow:inset 0 0 0 1px rgb(0 0 0 / .15)}
+.paltx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.paltx span{font-size:.8rem;color:var(--ink-3)}
+.palck{font-weight:700;color:var(--accent);width:16px}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:14px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 40px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+
+/* Header */
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand h1{font-family:var(--font-display);font-weight:700;font-size:1.6rem;margin:0;letter-spacing:-.01em}
+.brand .sub{color:var(--ink-3);font-size:.85rem}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.danger{color:var(--danger)}
+.btn.sm{padding:4px 9px;font-size:.82rem}
+
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;justify-content:space-between}
+.nav{display:flex;align-items:center;gap:6px}
+.nav .icon{width:34px;height:34px;justify-content:center;padding:0;font-size:1.1rem}
+.period{font-family:var(--font-display);font-size:1.25rem;font-weight:500;margin:0 0 0 6px;text-wrap:balance}
+.period small{font-family:var(--font-body);font-size:.8rem;color:var(--ink-3);font-weight:500;margin-left:6px;letter-spacing:.04em;text-transform:uppercase}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:9px;padding:3px;gap:2px}
+.seg button{border:0;background:transparent;padding:6px 14px;border-radius:7px;font-weight:500;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .08)}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:980px){.layout{grid-template-columns:minmax(0,1fr)}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.notice{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--accent-soft);border-radius:var(--radius);color:var(--ink)}
+.notice p{margin:0;max-width:65ch}
+
+/* Time grid (day & week) */
+.grid-scroll{overflow-x:auto;border-radius:var(--radius)}
+.tgrid{display:grid;grid-template-columns:52px repeat(var(--cols), minmax(var(--colmin), 1fr));min-width:calc(52px + var(--cols) * var(--colmin))}
+.tg-corner{border-bottom:1px solid var(--line)}
+.tg-head{border-bottom:1px solid var(--line);border-left:1px solid var(--line-2);padding:8px 8px 7px;text-align:left;background:transparent;border-top:0;border-right:0;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tg-head:hover{background:var(--surface-2)}
+.tg-head .dname{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);font-weight:600}
+.tg-head .dnum{font-family:var(--font-display);font-size:1.35rem;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
+.tg-head.today .dnum{color:var(--accent)}
+.tg-head.sel{background:var(--surface-2)}
+.tg-head .tcount{font-size:.72rem;color:var(--ink-3)}
+.tg-head .tcount b{color:var(--ink-2);font-weight:600}
+.tg-hours{position:relative}
+.tg-hours span{position:absolute;right:8px;transform:translateY(-50%);font-size:.7rem;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.tg-col{position:relative;border-left:1px solid var(--line-2);cursor:copy;
+  background-image:linear-gradient(to bottom, var(--line-2) 1px, transparent 1px);background-size:100% var(--hour)}
+.tg-col.today{background-color:color-mix(in srgb, var(--accent) 4%, transparent)}
+.now{position:absolute;left:0;right:0;height:2px;background:var(--danger);z-index:3;pointer-events:none}
+.now::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--danger)}
+.ev{position:absolute;z-index:2;border:0;text-align:left;border-radius:7px;padding:4px 7px;overflow:hidden;cursor:pointer;
+  background:color-mix(in srgb, var(--c) 15%, var(--surface));color:var(--ink);display:flex;flex-direction:column;gap:1px;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent)}
+.ev:hover{background:color-mix(in srgb, var(--c) 24%, var(--surface))}
+.ev .t{font-weight:600;font-size:.8rem;line-height:1.2;overflow-wrap:anywhere}
+.ev .m{font-size:.72rem;color:var(--ink-2);font-variant-numeric:tabular-nums;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.lvl{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;padding:0 5px;border-radius:4px;background:color-mix(in srgb, var(--c, var(--accent)) 22%, transparent);color:var(--ink)}
+.exb{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:600}
+
+/* Month */
+.mgrid{display:grid;grid-template-columns:repeat(7, minmax(0,1fr))}
+.mhead{padding:8px;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);font-weight:600;border-bottom:1px solid var(--line)}
+.mcell{min-height:112px;border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);padding:6px;display:flex;flex-direction:column;gap:3px;text-align:left;background:transparent;border-top:0;border-left:0;min-width:0;cursor:pointer}
+.mcell:nth-child(7n+7){border-right:0}
+.mcell:hover{background:var(--surface-2)}
+.mcell.out{color:var(--ink-3)}
+.mcell.out .mnum{opacity:.55}
+.mcell.sel{background:var(--accent-soft)}
+.mtop{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.mnum{font-weight:600;font-variant-numeric:tabular-nums;width:26px;height:26px;display:grid;place-items:center;border-radius:50%}
+.mcell.today .mnum{background:var(--accent);color:var(--accent-ink)}
+.mtodo{font-size:.7rem;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.mtodo.all{color:var(--ok)}
+.mev{font-size:.74rem;line-height:1.25;padding:2px 5px;border-radius:5px;background:color-mix(in srgb, var(--c) 14%, transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.mev b{font-weight:600;font-variant-numeric:tabular-nums}
+.mmore{font-size:.72rem;color:var(--ink-3)}
+.mdots{display:none;gap:3px;flex-wrap:wrap}
+.mdots i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+@media (max-width:640px){
+  .mcell{min-height:64px;padding:4px}
+  .mev,.mmore{display:none}
+  .mdots{display:flex}
+  .mtodo{font-size:.64rem}
+}
+
+/* Sidebar */
+.side{display:flex;flex-direction:column;gap:16px;min-width:0}
+.side .panel{padding:14px;display:flex;flex-direction:column;gap:12px}
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sh h2{font-family:var(--font-display);font-weight:500;font-size:1.1rem;margin:0;text-wrap:balance}
+.eyebrow{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-weight:600}
+.addtodo{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+.addtodo input,.addtodo select{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 9px;min-width:0}
+.addtodo .row2{grid-column:1 / -1;display:flex;gap:6px}
+.addtodo .row2 select{flex:1}
+.tlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.titem{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:start;padding:6px 4px;border-radius:7px}
+.titem:hover{background:var(--surface-2)}
+.titem{transition:background-color .2s}
+.titem input[type=checkbox]{appearance:none;-webkit-appearance:none;width:20px;height:20px;margin:0;flex:none;border:2px solid var(--ink-3);border-radius:5px;background:var(--surface);cursor:pointer;position:relative;display:grid;place-items:center;transition:background-color .15s,border-color .15s}
+.titem input[type=checkbox]:hover{border-color:var(--ok)}
+.titem input[type=checkbox]::before{content:"";width:5px;height:10px;border:solid var(--surface);border-width:0 2.5px 2.5px 0;transform:translateY(-1px) rotate(45deg) scale(0);transition:transform .15s}
+.titem input[type=checkbox]:checked{background:var(--ok);border-color:var(--ok);animation:pop .22s ease-out}
+.titem input[type=checkbox]:checked::before{transform:translateY(-1px) rotate(45deg) scale(1)}
+@keyframes pop{50%{transform:scale(1.18)}}
+.titem.done{background:color-mix(in srgb, var(--ok) 11%, transparent)}
+.titem.done:hover{background:color-mix(in srgb, var(--ok) 17%, transparent)}
+.titem.done .cat{color:var(--ok)}
+.titem .txt{border:0;background:transparent;text-align:left;padding:0;overflow-wrap:anywhere;display:flex;flex-direction:column;gap:1px}
+.titem.done .txt .x{text-decoration:line-through;text-decoration-color:color-mix(in srgb, var(--ok) 70%, transparent);color:var(--ink-3)}
+.titem .cat{font-size:.7rem;color:var(--ink-3)}
+.titem .ops{display:flex;gap:2px;opacity:.55}
+.titem:hover .ops,.titem:focus-within .ops{opacity:1}
+.iconbtn{border:0;background:transparent;width:26px;height:26px;border-radius:6px;color:var(--ink-2);display:grid;place-items:center;font-size:.9rem}
+.iconbtn:hover{background:var(--line)}
+.empty{color:var(--ink-3);font-size:.86rem;margin:0}
+
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat{background:var(--surface-2);border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;gap:2px}
+.stat .v{font-family:var(--font-display);font-size:1.35rem;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .l{font-size:.72rem;color:var(--ink-3)}
+.bar{height:6px;border-radius:4px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok);border-radius:4px;transition:width .3s}
+.wk-day{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line-2);padding-top:8px}
+.wk-day:first-of-type{border-top:0;padding-top:0}
+.wk-dh{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.wk-dh button{border:0;background:transparent;padding:0;font-weight:600;font-size:.84rem;text-align:left}
+.wk-dh button:hover{color:var(--accent)}
+.wk-dh .c{font-size:.74rem;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.wk-dh.today button{color:var(--accent)}
+.overdue{background:color-mix(in srgb, var(--warn) 12%, transparent);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.overdue .sh h3{margin:0;font-size:.88rem;color:var(--warn)}
+.status{font-size:.75rem;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.status.cloud i{background:var(--ok)}
+.status.local i{background:var(--warn)}
+
+/* Modal */
+.ov{position:fixed;inset:0;background:rgb(10 12 30 / .45);display:grid;place-items:center;z-index:50;
+  padding:max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
+.modal{background:var(--surface);border-radius:14px;width:min(520px, 100%);max-height:calc(100vh - 32px);overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 50px rgb(0 0 0 / .25)}
+.modal h2{font-family:var(--font-display);font-weight:500;margin:0;font-size:1.25rem}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fgrid .full{grid-column:1 / -1}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.76rem;color:var(--ink-2);font-weight:500}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
+.field textarea{min-height:70px;resize:vertical}
+.check{display:flex;gap:8px;align-items:center;font-size:.86rem}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.mfoot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+.mfoot .r{display:flex;gap:8px;margin-left:auto}
+.err{color:var(--danger);font-size:.82rem;margin:0}
+.types{display:flex;flex-wrap:wrap;gap:6px}
+.types label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:.8rem;cursor:pointer}
+.types input{position:absolute;opacity:0;pointer-events:none}
+.types label:has(input:checked){background:color-mix(in srgb, var(--c) 18%, transparent);border-color:var(--c)}
+.types label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.types i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+@media (max-width:460px){.fgrid{grid-template-columns:1fr}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.76rem;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.legend{align-items:center}
+.hbreak{display:flex;flex-direction:column;gap:4px}
+.hbreak select{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:4px 6px;font-size:.8rem;max-width:60%;min-width:0}
+.hrow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(40px,1fr) auto;gap:8px;align-items:center;border:0;background:transparent;padding:5px 6px;border-radius:7px;text-align:left;opacity:.5}
+.hrow.on{opacity:1}
+.hrow:hover{background:var(--surface-2);opacity:1}
+.hrow .hn{display:flex;align-items:center;gap:6px;font-size:.82rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hrow .hn i{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.hrow .hb{height:6px;border-radius:3px;background:var(--line-2);overflow:hidden}
+.hrow .hb b{display:block;height:100%;background:var(--c);border-radius:3px}
+.hrow .hb.two{position:relative}
+.hrow .hb.two b{position:absolute;left:0;top:0}
+.hrow .hb.two b.plan{background:color-mix(in srgb, var(--c) 30%, transparent)}
+.hrow .hh{font-size:.76rem;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ev{cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.ev .rs{position:absolute;left:0;right:0;bottom:0;height:8px;cursor:ns-resize}
+.ev .rs::after{content:"";position:absolute;left:50%;bottom:2px;width:18px;height:3px;margin-left:-9px;border-radius:2px;background:color-mix(in srgb, var(--c) 55%, transparent);opacity:0;transition:opacity .15s}
+.ev:hover .rs::after,.ev.dragging .rs::after{opacity:1}
+.ev.dragging{cursor:grabbing;z-index:6;background:color-mix(in srgb, var(--c) 28%, var(--surface));box-shadow:0 8px 20px rgb(0 0 0 / .22), inset 0 0 0 1.5px var(--c)}
+.mev{cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.mev.dragsrc{opacity:.35}
+.mghost{position:fixed;z-index:60;pointer-events:none;margin:0;background:color-mix(in srgb, var(--c) 30%, var(--surface));box-shadow:0 8px 20px rgb(0 0 0 / .22)}
+.mcell.drop{outline:2px dashed var(--accent);outline-offset:-3px;background:var(--accent-soft)}
+body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
+.tylist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.tyrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.tynew .tyrow{grid-template-columns:auto minmax(0,1fr) auto}
+.tyrow input[type=color],.tynew input[type=color]{width:36px;height:32px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer}
+.tyrow .ty-label,#ty_new{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 9px;min-width:0;width:100%}
+.ty-l{font-size:.8rem;color:var(--ink-2)}
+.tydel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82rem;background:color-mix(in srgb, var(--danger) 10%, transparent);border-radius:8px;padding:8px}
+.tydel select{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 6px;min-width:0}
+.tynew{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line-2);padding-top:12px}
+.swatches{display:flex;flex-wrap:wrap;gap:6px}
+.sw{width:24px;height:24px;border-radius:50%;border:2px solid transparent;background:var(--c);padding:0}
+.sw.on{border-color:var(--ink);box-shadow:inset 0 0 0 2px var(--surface)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Agenda ELE</h1>
+      <span class="sub">Clases, preparación y tareas</span>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="btnDesign" type="button">Diseño</button>
+      <button class="btn" id="btnNewTodo" type="button">+ Tarea</button>
+      <button class="btn primary" id="btnNewEvent" type="button">+ Clase o evento</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="nav">
+      <button class="btn icon" id="prev" type="button" aria-label="Anterior">‹</button>
+      <button class="btn" id="today" type="button">Hoy</button>
+      <button class="btn icon" id="next" type="button" aria-label="Siguiente">›</button>
+      <h2 class="period" id="period"></h2>
+    </div>
+    <div class="seg" role="group" aria-label="Vista">
+      <button type="button" data-view="dia">Día</button>
+      <button type="button" data-view="semana">Semana</button>
+      <button type="button" data-view="mes">Mes</button>
+    </div>
+  </div>
+
+  <div id="notice"></div>
+
+  <div class="layout">
+    <main class="panel" id="main"></main>
+    <aside class="side">
+      <section class="panel" id="dayTodos"></section>
+      <section class="panel" id="weekSummary"></section>
+      <section class="panel" id="monthSummary" hidden></section>
+      <div class="legend" id="legend"></div>
+      <div class="status" id="status"><i></i><span>Conectando…</span></div>
+    </aside>
+  </div>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+(() => {
+"use strict";
+const DEFAULT_TYPES = [
+  {id:"clase", label:"Clase en grupo", color:"#3d5bd9", lective:true},
+  {id:"particular", label:"Clase particular", color:"#12968e", lective:true},
+  {id:"prep", label:"Preparación", color:"#c98a12", lective:false},
+  {id:"reunion", label:"Reunión", color:"#9248bd", lective:false},
+  {id:"examen", label:"Examen / DELE", color:"#d0485a", lective:false},
+  {id:"otro", label:"Otro", color:"#6b7392", lective:false}
+];
+const PRESETS = ["#3d5bd9","#12968e","#c98a12","#9248bd","#d0485a","#2f8a5b","#e0742c","#c2408f","#2a8fc7","#7a8a1e","#6b7392","#8a5a3c"];
+const SETTINGS_ID = "settings-tipos";
+const safeColor = c => /^#[0-9a-f]{6}$/i.test(c || "") ? c : "#6b7392";
+function getTypes(){ const s = Store.items.get(SETTINGS_ID); return (s && Array.isArray(s.types) && s.types.length) ? s.types : DEFAULT_TYPES; }
+function typeOf(id){ return getTypes().find(t => t.id === id); }
+const LEVELS = ["", "A1","A2","B1","B2","C1","C2"];
+const CATS = {prep:"Preparar clase", corregir:"Corregir", admin:"Administración", alumnos:"Alumnos", personal:"Personal"};
+const DN = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"];
+const DN3 = ["lun","mar","mié","jue","vie","sáb","dom"];
+const MN = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const LSKEY = "agenda-ele-v1";
+
+/* ---------- utils ---------- */
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+const pad = n => String(n).padStart(2,"0");
+const key = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse = k => { const [y,m,d] = k.split("-").map(Number); return new Date(y, m-1, d); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const startOfWeek = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay()+6)%7)); return x; };
+const dow = d => (d.getDay()+6)%7;
+const mins = t => { const [h,m] = (t||"0:0").split(":").map(Number); return h*60+m; };
+const hhmm = m => pad(Math.floor(m/60))+":"+pad(m%60);
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+function isoWeek(d){ const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const n = t.getUTCDay()||7; t.setUTCDate(t.getUTCDate()+4-n); const y0 = new Date(Date.UTC(t.getUTCFullYear(),0,1)); return Math.ceil(((t-y0)/864e5+1)/7); }
+const todayKey = () => key(new Date());
+const fmtLong = d => DN[dow(d)]+" "+d.getDate()+" de "+MN[d.getMonth()];
+const fmtShort = d => DN3[dow(d)]+" "+d.getDate()+" "+MN[d.getMonth()].slice(0,3);
+const colorOf = t => { const x = typeOf(t); return x ? safeColor(x.color) : "#6b7392"; };
+const hoursFmt = m => { const h = m/60; return (Math.round(h*10)/10).toString().replace(".", ",") + " h"; };
+
+/* ---------- store ---------- */
+const Store = {
+  items: new Map(), mode: "loading", col: null,
+  loadLocal(){ try { const raw = localStorage.getItem(LSKEY); if (raw) { const arr = JSON.parse(raw); this.items = new Map(arr.map(i => [i.id, i])); } } catch(e){} },
+  saveLocal(){ try { localStorage.setItem(LSKEY, JSON.stringify([...this.items.values()])); } catch(e){} },
+  async init(){
+    this.loadLocal();
+    let db = null, user = null, id = null;
+    try {
+      if (window.claude && typeof window.claude.use === "function") {
+        [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+        if (db && user) id = await user.id();
+      }
+    } catch(e){ db = null; }
+    if (!db || !id) { this.mode = "local"; render(); return; }
+    this.col = db.collection("data/users/" + id);
+    let settled = false;
+    const timer = setTimeout(() => { if (!settled) { this.mode = "local"; this.col = null; render(); } }, 10000);
+    this.col.onSnapshot(snap => {
+      settled = true; clearTimeout(timer);
+      this.mode = "cloud";
+      this.items = new Map(snap.docs.map(d => { const v = d.data() || {}; return [d.id, Object.assign({}, v, {id: d.id})]; }));
+      this.saveLocal(); render();
+    }, err => {
+      settled = true; clearTimeout(timer);
+      this.mode = "local"; this.col = null; render();
+    });
+  },
+  put(item){
+    this.items.set(item.id, item); this.saveLocal(); render();
+    if (this.col) { const { id, ...data } = item; this.col.doc(id).set(data).catch(() => flash("No se pudo guardar. Revisa tu conexión.")); }
+  },
+  del(id){
+    this.items.delete(id); this.saveLocal(); render();
+    if (this.col) this.col.doc(id).delete().catch(() => flash("No se pudo borrar. Revisa tu conexión."));
+  },
+  events(){ return [...this.items.values()].filter(i => i.kind === "event"); },
+  todos(){ return [...this.items.values()].filter(i => i.kind === "todo"); },
+  eventsOn(k){ return this.events().filter(e => e.date === k).sort((a,b) => mins(a.start)-mins(b.start)); },
+  todosOn(k){ return this.todos().filter(t => t.date === k).sort((a,b) => (a.done-b.done) || (a.createdAt||0)-(b.createdAt||0)); }
+};
+
+/* ---------- state ---------- */
+const VIEWS = ["dia","semana","mes"];
+const state = {
+  view: VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : (window.innerWidth < 640 ? "dia" : "semana"),
+  cursor: new Date()
+};
+try { const v = localStorage.getItem(LSKEY+"-view"); if (!VIEWS.includes(location.hash.slice(1)) && VIEWS.includes(v)) state.view = v; } catch(e){}
+let noticeMsg = "";
+function flash(msg){ noticeMsg = msg; render(); setTimeout(() => { if (noticeMsg === msg) { noticeMsg = ""; render(); } }, 5000); }
+
+function setView(v){
+  state.view = v;
+  try { localStorage.setItem(LSKEY+"-view", v); } catch(e){}
+  if (location.hash.slice(1) !== v) history.replaceState(null, "", "#"+v);
+  render();
+}
+function shift(dir){
+  const c = state.cursor;
+  if (state.view === "dia") state.cursor = addDays(c, dir);
+  else if (state.view === "semana") state.cursor = addDays(c, 7*dir);
+  else state.cursor = new Date(c.getFullYear(), c.getMonth()+dir, Math.min(c.getDate(), 28));
+  render();
+}
+function select(k, toDay){ state.cursor = parse(k); if (toDay) setView("dia"); else render(); }
+
+/* ---------- render ---------- */
+const PALETTES = ["beige", "celeste", "blanco"];
+function currentPalette(){
+  const s = Store.items.get("settings-tema");
+  if (s && PALETTES.includes(s.palette)) return s.palette;
+  try { const v = localStorage.getItem(LSKEY + "-pal"); if (PALETTES.includes(v)) return v; } catch(e){}
+  return "beige";
+}
+function applyPalette(){
+  const p = currentPalette();
+  document.documentElement.setAttribute("data-palette", p);
+  document.querySelectorAll("[data-pal]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.pal === p)));
+}
+function setPalette(p){
+  try { localStorage.setItem(LSKEY + "-pal", p); } catch(e){}
+  Store.put({ id: "settings-tema", kind: "settings", palette: p });
+}
+function render(){
+  if (drag) { pendingRender = true; return; }
+  applyPalette();
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === state.view)));
+  renderPeriod(); renderNotice();
+  if (state.view === "mes") renderMonth(); else renderGrid(state.view === "dia" ? [state.cursor] : Array.from({length:7}, (_,i) => addDays(startOfWeek(state.cursor), i)));
+  renderDayTodos(); renderWeek(); renderStatus(); renderLegend();
+  $("#weekSummary").hidden = state.view !== "semana";
+  $("#monthSummary").hidden = state.view !== "mes";
+  $("#dayTodos").hidden = state.view === "mes";
+  if (state.view === "mes") renderMonthHours();
+  $("#legend").hidden = true;
+  $("#status").hidden = state.view === "dia";
+}
+function renderLegend(){
+  const el = $("#legend");
+  el.innerHTML = getTypes().map(t => `<span style="--c:${safeColor(t.color)}"><i></i>${esc(t.label)}</span>`).join("");
+}
+function renderPeriod(){
+  const c = state.cursor; let html;
+  if (state.view === "dia") html = esc(fmtLong(c)) + `<small>${c.getFullYear()}</small>`;
+  else if (state.view === "semana") {
+    const s = startOfWeek(c), e = addDays(s, 6);
+    const left = s.getMonth() === e.getMonth() ? s.getDate() : s.getDate()+" "+MN[s.getMonth()].slice(0,3);
+    html = `${left} – ${e.getDate()} ${MN[e.getMonth()]}<small>Semana ${isoWeek(s)}</small>`;
+  } else html = MN[c.getMonth()][0].toUpperCase()+MN[c.getMonth()].slice(1)+` <small>${c.getFullYear()}</small>`;
+  $("#period").innerHTML = html;
+}
+function renderNotice(){
+  const el = $("#notice");
+  if (noticeMsg) { el.innerHTML = `<div class="notice" role="status"><p>${esc(noticeMsg)}</p></div>`; return; }
+  if (Store.mode !== "loading" && Store.events().length + Store.todos().length === 0) {
+    el.innerHTML = `<div class="notice"><p><b>Tu agenda está vacía.</b> Añade tu primera clase con «+ Clase o evento», o toca una hora en el calendario. Puedes cargar una semana de ejemplo para ver cómo funciona y borrarla después.</p><button class="btn" type="button" id="loadEx">Cargar semana de ejemplo</button></div>`;
+    $("#loadEx").onclick = loadExamples; return;
+  }
+  const ex = [...Store.items.values()].some(i => i.example);
+  el.innerHTML = ex ? `<div class="notice"><p>Estás viendo datos de <b>ejemplo</b>. Cuando quieras empezar con tu agenda real, bórralos.</p><button class="btn" type="button" id="clearEx">Borrar ejemplos</button></div>` : "";
+  if (ex) $("#clearEx").onclick = () => { [...Store.items.values()].filter(i => i.example).forEach(i => Store.del(i.id)); };
+}
+
+function layoutDay(evs){
+  // greedy columns within overlapping clusters
+  const out = []; let cluster = [], end = -1;
+  const flush = () => { const cols = []; cluster.forEach(e => { let c = cols.findIndex(last => last <= mins(e.start)); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = Math.max(mins(e.end), mins(e.start)+15); e._col = c; }); cluster.forEach(e => { e._n = cols.length; out.push(e); }); cluster = []; };
+  evs.forEach(e => { const s = mins(e.start); if (s >= end && cluster.length) { flush(); end = -1; } cluster.push(Object.assign({}, e)); end = Math.max(end, Math.max(mins(e.end), s+15)); });
+  if (cluster.length) flush();
+  return out;
+}
+
+function renderGrid(days){
+  const keys = days.map(key), tk = todayKey(), sel = key(state.cursor);
+  const evsByDay = keys.map(k => Store.eventsOn(k));
+  let h0 = 7, h1 = 22;
+  evsByDay.flat().forEach(e => { h0 = Math.min(h0, Math.floor(mins(e.start)/60)); h1 = Math.max(h1, Math.ceil(mins(e.end)/60)); });
+  const H = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--hour")) || 52;
+  const total = (h1-h0)*H;
+  const colmin = days.length === 1 ? "200px" : "108px";
+  let html = `<div class="grid-scroll"><div class="tgrid" style="--cols:${days.length};--colmin:${colmin}"><div class="tg-corner"></div>`;
+  days.forEach((d,i) => {
+    const k = keys[i], ts = Store.todosOn(k), done = ts.filter(t => t.done).length;
+    html += `<button type="button" class="tg-head${k===tk?" today":""}${k===sel&&days.length>1?" sel":""}" data-sel="${k}">
+      <span class="dname">${DN3[dow(d)]}</span><span class="dnum">${d.getDate()}</span>
+      <span class="tcount">${ts.length ? `<b>${done}/${ts.length}</b> tareas` : "&nbsp;"}</span></button>`;
+  });
+  html += `<div class="tg-hours" style="height:${total}px">`;
+  for (let h = h0+1; h < h1; h++) html += `<span style="top:${(h-h0)*H}px">${pad(h)}:00</span>`;
+  html += `</div>`;
+  days.forEach((d,i) => {
+    const k = keys[i];
+    html += `<div class="tg-col${k===tk?" today":""}" data-date="${k}" style="height:${total}px">`;
+    if (k === tk) { const n = new Date(); const m = n.getHours()*60+n.getMinutes(); if (m >= h0*60 && m <= h1*60) html += `<div class="now" style="top:${(m-h0*60)/60*H}px"></div>`; }
+    layoutDay(evsByDay[i]).forEach(e => {
+      const s = mins(e.start), en = Math.max(mins(e.end), s+20);
+      const top = (s-h0*60)/60*H, ht = Math.max((en-s)/60*H - 2, 20);
+      const w = 100/e._n;
+      html += `<button type="button" class="ev" data-ev="${esc(e.id)}" style="--c:${colorOf(e.type)};top:${top}px;height:${ht}px;left:calc(${e._col*w}% + 2px);width:calc(${w}% - 4px)">
+        <span class="t">${esc(e.title)}</span>
+        <span class="m"><span class="tm">${esc(e.start)}–${esc(e.end)}</span>${e.level?` <span class="lvl">${esc(e.level)}</span>`:""}${ht > 56 && e.place ? ` · ${esc(e.place)}` : ""}${e.example?` <span class="exb">ejemplo</span>`:""}</span><span class="rs" aria-hidden="true"></span></button>`;
+    });
+    html += `</div>`;
+  });
+  html += `</div></div>`;
+  const main = $("#main"); main.innerHTML = html;
+  main.querySelectorAll("[data-sel]").forEach(b => b.onclick = () => select(b.dataset.sel, days.length > 1 ? false : false));
+  main.querySelectorAll("[data-sel]").forEach(b => b.ondblclick = () => select(b.dataset.sel, true));
+  main.querySelectorAll(".ev").forEach(b => {
+    b.onclick = ev => { ev.stopPropagation(); if (Date.now() - lastDragEnd < 400) return; const e = Store.items.get(b.dataset.ev); if (e) openEvent(e); };
+    attachGridDrag(b, h0, h1, H);
+  });
+  main.querySelectorAll(".tg-col").forEach(col => col.onclick = ev => {
+    if (ev.target !== col) return;
+    const y = ev.offsetY; let m = h0*60 + Math.floor(y / H * 2) * 30;
+    m = Math.min(m, 23*60);
+    openEvent(null, { date: col.dataset.date, start: hhmm(m), end: hhmm(Math.min(m+60, 23*60+59)) });
+  });
+  // scroll to morning on first paint
+}
+
+function renderMonth(){
+  const c = state.cursor, first = new Date(c.getFullYear(), c.getMonth(), 1), start = startOfWeek(first);
+  const tk = todayKey(), sel = key(c);
+  let html = `<div class="mgrid">` + DN3.map(d => `<div class="mhead">${d}</div>`).join("");
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(start, i), k = key(d);
+    if (i === 35 && d.getMonth() !== c.getMonth()) break;
+    const evs = Store.eventsOn(k), ts = Store.todosOn(k), done = ts.filter(t => t.done).length;
+    html += `<button type="button" class="mcell${d.getMonth()!==c.getMonth()?" out":""}${k===tk?" today":""}${k===sel?" sel":""}" data-sel="${k}" aria-label="${esc(fmtLong(d))}">
+      <span class="mtop"><span class="mnum">${d.getDate()}</span>${ts.length?`<span class="mtodo${done===ts.length?" all":""}">✓ ${done}/${ts.length}</span>`:""}</span>
+      ${evs.slice(0,3).map(e => `<span class="mev" data-ev="${esc(e.id)}" style="--c:${colorOf(e.type)}"><b>${esc(e.start)}</b> ${esc(e.title)}</span>`).join("")}
+      ${evs.length > 3 ? `<span class="mmore">+${evs.length-3} más</span>` : ""}
+      ${evs.length ? `<span class="mdots">${evs.slice(0,5).map(e => `<i style="--c:${colorOf(e.type)}"></i>`).join("")}</span>` : ""}
+    </button>`;
+  }
+  html += `</div>`;
+  const main = $("#main"); main.innerHTML = html;
+  main.querySelectorAll("[data-sel]").forEach(b => {
+    b.onclick = () => { if (Date.now() - lastDragEnd < 400) return; select(b.dataset.sel, false); };
+    b.ondblclick = () => select(b.dataset.sel, true);
+  });
+  main.querySelectorAll(".mev[data-ev]").forEach(attachMonthDrag);
+}
+
+/* ---------- drag & drop ---------- */
+let drag = null, pendingRender = false, lastDragEnd = 0;
+// Shared pointer gesture: mouse/pen start after 5px of movement; touch needs a 350 ms press so normal scrolling still works.
+function gesture(el, pd, handlers){
+  const isTouch = pd.pointerType === "touch";
+  const sx = pd.clientX, sy = pd.clientY;
+  let active = false, timer = null;
+  const blockScroll = e => { if (active) e.preventDefault(); };
+  const begin = () => {
+    active = true; drag = { el }; document.body.classList.add("is-dragging");
+    try { el.setPointerCapture(pd.pointerId); } catch(e){}
+    if (navigator.vibrate && isTouch) { try { navigator.vibrate(15); } catch(e){} }
+    handlers.start(pd);
+  };
+  const cleanup = () => {
+    clearTimeout(timer);
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", up);
+    document.removeEventListener("pointercancel", cancel);
+    document.removeEventListener("keydown", esc_);
+    document.removeEventListener("touchmove", blockScroll);
+    document.body.classList.remove("is-dragging");
+  };
+  const finish = commit => {
+    const was = active; active = false; cleanup();
+    if (!was) return;
+    lastDragEnd = Date.now(); drag = null;
+    handlers.end(commit);
+    if (pendingRender) { pendingRender = false; render(); }
+  };
+  const move = e => {
+    if (!active) {
+      const dist = Math.hypot(e.clientX - sx, e.clientY - sy);
+      if (isTouch) { if (dist > 8) cleanup(); return; }
+      if (dist < 5) return;
+      begin();
+    }
+    e.preventDefault();
+    handlers.move(e);
+  };
+  const up = () => finish(true);
+  const cancel = () => finish(false);
+  const esc_ = e => { if (e.key === "Escape") finish(false); };
+  if (isTouch) { timer = setTimeout(begin, 350); document.addEventListener("touchmove", blockScroll, { passive: false }); }
+  document.addEventListener("pointermove", move, { passive: false });
+  document.addEventListener("pointerup", up);
+  document.addEventListener("pointercancel", cancel);
+  document.addEventListener("keydown", esc_);
+}
+function moved(ev, date, start, end){
+  const changed = date !== ev.date || start !== ev.start || end !== ev.end;
+  if (changed) {
+    Store.put(Object.assign({}, ev, { date, start, end }));
+    flash(`«${ev.title}» ahora es el ${fmtLong(parse(date))}, ${start}–${end}.`);
+  } else render();
+}
+function attachGridDrag(el, h0, h1, H){
+  el.addEventListener("contextmenu", e => e.preventDefault());
+  el.addEventListener("pointerdown", pd => {
+    if (pd.button !== 0) return;
+    const ev = Store.items.get(el.dataset.ev); if (!ev) return;
+    const resize = pd.target.classList.contains("rs");
+    const cols = [...document.querySelectorAll("#main .tg-col")];
+    const s0 = mins(ev.start), dur = Math.max(mins(ev.end) - s0, 15);
+    const grab = pd.clientY - el.getBoundingClientRect().top;
+    let cur = { date: ev.date, start: s0, end: s0 + dur };
+    const label = el.querySelector(".tm");
+    gesture(el, pd, {
+      start(){ el.classList.add("dragging"); },
+      move(e){
+        if (resize) {
+          const r = el.parentElement.getBoundingClientRect();
+          let m = h0*60 + Math.round((e.clientY - r.top) / H * 4) * 15;
+          m = Math.max(cur.start + 15, Math.min(m, h1*60, 24*60 - 1));
+          cur.end = m;
+          el.style.height = ((m - cur.start) / 60 * H - 2) + "px";
+        } else {
+          const first = cols[0].getBoundingClientRect(), last = cols[cols.length-1].getBoundingClientRect();
+          const col = cols.find(c => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right; })
+            || (e.clientX < first.left ? cols[0] : cols[cols.length-1]);
+          const r = col.getBoundingClientRect();
+          let m = h0*60 + Math.round((e.clientY - grab - r.top) / H * 4) * 15;
+          m = Math.max(h0*60, Math.min(m, Math.max(h0*60, h1*60 - dur)));
+          cur = { date: col.dataset.date, start: m, end: Math.min(m + dur, 24*60 - 1) };
+          if (el.parentElement !== col) col.appendChild(el);
+          el.style.top = ((m - h0*60) / 60 * H) + "px";
+          el.style.left = "2px"; el.style.width = "calc(100% - 4px)";
+          void last;
+        }
+        if (label) label.textContent = hhmm(cur.start) + "–" + hhmm(cur.end);
+      },
+      end(commit){
+        el.classList.remove("dragging");
+        if (commit) moved(ev, cur.date, hhmm(cur.start), hhmm(cur.end)); else render();
+      }
+    });
+  });
+}
+function attachMonthDrag(chip){
+  chip.addEventListener("contextmenu", e => e.preventDefault());
+  chip.addEventListener("pointerdown", pd => {
+    if (pd.button !== 0) return;
+    const ev = Store.items.get(chip.dataset.ev); if (!ev) return;
+    let ghost = null, target = null;
+    const r0 = chip.getBoundingClientRect(), ox = pd.clientX - r0.left, oy = pd.clientY - r0.top;
+    gesture(chip, pd, {
+      start(){
+        ghost = chip.cloneNode(true); ghost.classList.add("mghost");
+        ghost.style.width = r0.width + "px";
+        document.body.appendChild(ghost);
+        chip.classList.add("dragsrc");
+      },
+      move(e){
+        ghost.style.left = (e.clientX - ox) + "px"; ghost.style.top = (e.clientY - oy) + "px";
+        const hit = document.elementFromPoint(e.clientX, e.clientY);
+        const cell = hit && hit.closest ? hit.closest(".mcell") : null;
+        if (cell !== target) { if (target) target.classList.remove("drop"); target = cell; if (target) target.classList.add("drop"); }
+      },
+      end(commit){
+        if (ghost) ghost.remove();
+        chip.classList.remove("dragsrc");
+        if (target) target.classList.remove("drop");
+        if (commit && target && target.dataset.sel) moved(ev, target.dataset.sel, ev.start, ev.end); else render();
+      }
+    });
+  });
+}
+
+function todoItem(t, opts = {}){
+  return `<li class="titem${t.done?" done":""}">
+    <input type="checkbox" data-tg="${esc(t.id)}" ${t.done?"checked":""} aria-label="Hecha: ${esc(t.text)}">
+    <button type="button" class="txt" data-te="${esc(t.id)}"><span class="x">${esc(t.text)}</span>${(() => { const p = [t.done ? "Hecha ✓" : "", opts.showDate ? fmtShort(parse(t.date)) : "", t.example ? "ejemplo" : ""].filter(Boolean); return p.length ? `<span class="cat">${esc(p.join(" · "))}</span>` : ""; })()}</button>
+    <span class="ops"><button type="button" class="iconbtn" data-td="${esc(t.id)}" title="Eliminar" aria-label="Eliminar tarea">✕</button></span>
+  </li>`;
+}
+function wireTodos(root){
+  root.querySelectorAll("[data-tg]").forEach(cb => cb.onchange = () => { const t = Store.items.get(cb.dataset.tg); if (t) Store.put(Object.assign({}, t, {done: cb.checked})); });
+  root.querySelectorAll("[data-te]").forEach(b => b.onclick = () => { const t = Store.items.get(b.dataset.te); if (t) openTodo(t); });
+  root.querySelectorAll("[data-tm]").forEach(b => b.onclick = () => { const t = Store.items.get(b.dataset.tm); if (t) { Store.put(Object.assign({}, t, {date: key(addDays(parse(t.date), 1))})); } });
+  root.querySelectorAll("[data-td]").forEach(b => b.onclick = () => Store.del(b.dataset.td));
+}
+
+let lastCat = "prep";
+function setHF(v){ hoursFilter = v; try { localStorage.setItem(LSKEY + "-hf", v); } catch(e){} render(); }
+function renderMonthHours(){
+  const c = state.cursor, y = c.getFullYear(), mo = c.getMonth();
+  const first = key(new Date(y, mo, 1)), last = key(new Date(y, mo + 1, 0));
+  const tk = todayKey(), now = new Date(), nowM = now.getHours()*60 + now.getMinutes();
+  const isGiven = e => e.date < tk || (e.date === tk && mins(e.end) <= nowM);
+  const dur = e => Math.max(0, mins(e.end) - mins(e.start));
+  const types = getTypes();
+  if (hoursFilter !== "lective" && hoursFilter !== "all" && !typeOf(hoursFilter)) hoursFilter = "lective";
+  const monthEvs = Store.events().filter(e => e.date >= first && e.date <= last);
+  const match = e => hoursFilter === "all" ? true : hoursFilter === "lective" ? !!typeOf(e.type)?.lective : e.type === hoursFilter;
+  const chosen = monthEvs.filter(match), given = chosen.filter(isGiven);
+  const sum = a => a.reduce((s,e) => s + dur(e), 0);
+  const label = hoursFilter === "all" ? "todas las horas" : hoursFilter === "lective" ? "horas lectivas" : typeOf(hoursFilter).label;
+  const byType = types.map(t => { const evs = monthEvs.filter(e => e.type === t.id); const g = evs.filter(isGiven); return { t, n: evs.length, ng: g.length, m: sum(evs), mg: sum(g) }; }).filter(x => x.n);
+  const maxM = Math.max(1, ...byType.map(x => x.m));
+  const monthName = MN[mo][0].toUpperCase() + MN[mo].slice(1);
+  const el = $("#monthSummary");
+  el.innerHTML = `
+    <div class="sh"><div><div class="eyebrow">Resumen del mes</div><h2>${esc(monthName)} ${y}</h2></div></div>
+    <div class="stats">
+      <div class="stat"><span class="v">${hoursFmt(sum(given))}</span><span class="l">dadas · ${given.length} ${given.length === 1 ? "sesión" : "sesiones"}</span></div>
+      <div class="stat"><span class="v">${hoursFmt(sum(chosen))}</span><span class="l">previstas en el mes · ${chosen.length}</span></div>
+    </div>
+    <div class="hbreak">
+      <div class="sh"><span class="eyebrow">Horas por tipo</span>
+        <select id="mhfilter" aria-label="Qué horas mostrar">
+          <option value="lective"${hoursFilter==="lective"?" selected":""}>Horas lectivas</option>
+          <option value="all"${hoursFilter==="all"?" selected":""}>Todas las horas</option>
+          ${types.map(t => `<option value="${esc(t.id)}"${hoursFilter===t.id?" selected":""}>${esc(t.label)}</option>`).join("")}
+        </select></div>
+      <p class="empty" style="font-size:.76rem">Mostrando: ${esc(label)}. Horas dadas / previstas · sesiones.</p>
+      ${byType.length ? byType.map(x => {
+        const on = hoursFilter === x.t.id || (hoursFilter === "lective" && x.t.lective) || hoursFilter === "all";
+        return `<button type="button" class="hrow${on ? " on" : ""}" data-hf="${esc(x.t.id)}" style="--c:${safeColor(x.t.color)}" title="Mostrar solo ${esc(x.t.label)}">
+          <span class="hn"><i></i>${esc(x.t.label)}${x.t.lective ? ` <span class="exb">lectiva</span>` : ""}</span>
+          <span class="hb two"><b class="plan" style="width:${Math.round(x.m / maxM * 100)}%"></b><b style="width:${Math.round(x.mg / maxM * 100)}%"></b></span>
+          <span class="hh">${hoursFmt(x.mg).replace(" h","")}/${hoursFmt(x.m)} · ${x.n}</span></button>`;
+      }).join("") : `<p class="empty">No hay clases ni eventos este mes.</p>`}
+    </div>`;
+  el.querySelector("#mhfilter").onchange = e => setHF(e.target.value);
+  el.querySelectorAll("[data-hf]").forEach(b => b.onclick = () => setHF(hoursFilter === b.dataset.hf ? "lective" : b.dataset.hf));
+}
+let hoursFilter = "lective";
+try { hoursFilter = localStorage.getItem(LSKEY + "-hf") || "lective"; } catch(e){}
+function renderDayTodos(){
+  const k = key(state.cursor), ts = Store.todosOn(k), done = ts.filter(t => t.done).length;
+  const el = $("#dayTodos");
+  const prevText = el.querySelector("#qtText")?.value || "";
+  const hadFocus = document.activeElement && document.activeElement.id === "qtText";
+  el.innerHTML = `
+    <div class="sh"><div><div class="eyebrow">Tareas del día</div><h2>${esc(fmtLong(state.cursor))}</h2></div>${ts.length?`<span class="eyebrow">${done}/${ts.length} hechas</span>`:""}</div>
+    <form class="addtodo" id="qt" autocomplete="off">
+      <input id="qtText" placeholder="Ej.: Corregir redacciones del B2" aria-label="Nueva tarea" maxlength="200">
+      <button class="btn primary sm" type="submit">Añadir</button>
+    </form>
+    ${ts.length ? `<ul class="tlist">${ts.map(t => todoItem(t)).join("")}</ul>` : `<p class="empty">Sin tareas para este día. Escribe una arriba y pulsa Intro o «Añadir».</p>`}`;
+  const inp = el.querySelector("#qtText"); inp.value = prevText; if (hadFocus) inp.focus();
+  el.querySelector("#qt").onsubmit = e => {
+    e.preventDefault(); const text = inp.value.trim(); if (!text) { inp.focus(); return; }
+    inp.value = "";
+    Store.put({ id: uid("t"), kind: "todo", text, date: k, done: false, createdAt: Date.now() });
+    el.querySelector("#qtText").focus();
+  };
+  const gd = el.querySelector("#goDay"); if (gd) gd.onclick = () => setView("dia");
+  wireTodos(el);
+}
+
+function renderWeek(){
+  const s = startOfWeek(state.cursor), days = Array.from({length:7}, (_,i) => addDays(s, i)), keys = days.map(key), tk = todayKey();
+  const weekTodos = Store.todos().filter(t => keys.includes(t.date));
+  const done = weekTodos.filter(t => t.done).length;
+  const types = getTypes();
+  const dur = e => Math.max(0, mins(e.end)-mins(e.start));
+  const weekEvs = Store.events().filter(e => keys.includes(e.date));
+  if (hoursFilter !== "lective" && hoursFilter !== "all" && !typeOf(hoursFilter)) hoursFilter = "lective";
+  const chosen = weekEvs.filter(e => hoursFilter === "all" ? true : hoursFilter === "lective" ? typeOf(e.type)?.lective : e.type === hoursFilter);
+  const chosenMin = chosen.reduce((a,e) => a + dur(e), 0);
+  const chosenLabel = hoursFilter === "all" ? "en total" : hoursFilter === "lective" ? "lectivas" : "de " + typeOf(hoursFilter).label;
+  const byType = types.map(t => { const evs = weekEvs.filter(e => e.type === t.id); return { t, n: evs.length, m: evs.reduce((a,e) => a + dur(e), 0) }; }).filter(x => x.n);
+  const maxM = Math.max(1, ...byType.map(x => x.m));
+  const overdue = Store.todos().filter(t => !t.done && t.date < tk && t.date < keys[0]).sort((a,b) => a.date < b.date ? -1 : 1);
+  const pct = weekTodos.length ? Math.round(done/weekTodos.length*100) : 0;
+  let html = `<div class="sh"><div><div class="eyebrow">Resumen semanal · Semana ${isoWeek(s)}</div><h2>${s.getDate()} ${MN[s.getMonth()].slice(0,3)} – ${days[6].getDate()} ${MN[days[6].getMonth()].slice(0,3)}</h2></div></div>
+    <div class="stats">
+      <div class="stat"><span class="v">${done}/${weekTodos.length}</span><span class="l">tareas hechas</span></div>
+      <div class="stat"><span class="v">${hoursFmt(chosenMin)}</span><span class="l">${esc(chosenLabel)} · ${chosen.length} ${chosen.length === 1 ? "sesión" : "sesiones"}</span></div>
+    </div>
+    <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso de la semana"><i style="width:${pct}%"></i></div>
+    <div class="hbreak">
+      <div class="sh"><span class="eyebrow">Horas por tipo</span>
+        <select id="hfilter" aria-label="Qué horas mostrar">
+          <option value="lective"${hoursFilter==="lective"?" selected":""}>Horas lectivas</option>
+          <option value="all"${hoursFilter==="all"?" selected":""}>Todas las horas</option>
+          ${types.map(t => `<option value="${esc(t.id)}"${hoursFilter===t.id?" selected":""}>${esc(t.label)}</option>`).join("")}
+        </select></div>
+      ${byType.length ? byType.map(x => {
+        const on = hoursFilter === x.t.id || (hoursFilter === "lective" && x.t.lective) || hoursFilter === "all";
+        return `<button type="button" class="hrow${on ? " on" : ""}" data-hf="${esc(x.t.id)}" style="--c:${safeColor(x.t.color)}" title="Mostrar solo ${esc(x.t.label)}">
+          <span class="hn"><i></i>${esc(x.t.label)}${x.t.lective ? ` <span class="exb">lectiva</span>` : ""}</span>
+          <span class="hb"><b style="width:${Math.round(x.m / maxM * 100)}%"></b></span>
+          <span class="hh">${hoursFmt(x.m)} · ${x.n}</span></button>`;
+      }).join("") : `<p class="empty">No hay clases ni eventos esta semana.</p>`}
+    </div>`;
+  if (overdue.length) {
+    html += `<div class="overdue"><div class="sh"><h3>Pendientes de semanas anteriores (${overdue.length})</h3><button class="btn sm" type="button" id="moveOver">Pasar a hoy</button></div><ul class="tlist">${overdue.slice(0,6).map(t => todoItem(t, {showDate:true})).join("")}</ul>${overdue.length>6?`<p class="empty">y ${overdue.length-6} más</p>`:""}</div>`;
+  }
+  days.forEach((d,i) => {
+    const k = keys[i], ts = Store.todosOn(k);
+    if (!ts.length) return;
+    const pend = ts.filter(t => !t.done), dn = ts.length - pend.length;
+    const late = k < tk && pend.length;
+    html += `<div class="wk-day"><div class="wk-dh${k===tk?" today":""}"><button type="button" data-sel="${k}">${esc(fmtShort(d))}${k===tk?" · hoy":""}</button><span class="c"${late?` style="color:var(--warn)"`:""}>${pend.length ? pend.length + " pendiente" + (pend.length>1?"s":"") : "todo hecho ✓"}${dn&&pend.length?` · ${dn} hecha${dn>1?"s":""}`:""}</span></div>
+      ${pend.length ? `<ul class="tlist">${pend.map(t => todoItem(t)).join("")}</ul>` : ""}</div>`;
+  });
+  if (!weekTodos.length) html += `<p class="empty">Aún no hay tareas esta semana. Elige un día en el calendario y añádelas en «Tareas del día».</p>`;
+  const el = $("#weekSummary"); el.innerHTML = html;
+  el.querySelector("#hfilter").onchange = e => setHF(e.target.value);
+  el.querySelectorAll("[data-hf]").forEach(b => b.onclick = () => setHF(hoursFilter === b.dataset.hf ? "lective" : b.dataset.hf));
+  el.querySelectorAll("[data-sel]").forEach(b => b.onclick = () => select(b.dataset.sel, false));
+  const mo = el.querySelector("#moveOver"); if (mo) mo.onclick = () => overdue.forEach(t => Store.put(Object.assign({}, t, {date: tk})));
+  wireTodos(el);
+}
+
+function renderStatus(){
+  const el = $("#status");
+  el.className = "status " + (Store.mode === "cloud" ? "cloud" : Store.mode === "local" ? "local" : "");
+  el.querySelector("span").textContent = Store.mode === "cloud" ? "Guardado en tu cuenta. Solo tú ves estos datos." : Store.mode === "local" ? "Guardado solo en este navegador. Inicia sesión en Claude para guardarlo en tu cuenta." : "Conectando…";
+}
+
+/* ---------- modals ---------- */
+function closeModal(){ $("#modalRoot").innerHTML = ""; }
+function modal(html){
+  const root = $("#modalRoot");
+  root.innerHTML = `<div class="ov" id="ov"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
+  $("#ov").addEventListener("mousedown", e => { if (e.target.id === "ov") closeModal(); });
+  const f = root.querySelector("input, select, textarea"); if (f) setTimeout(() => f.focus(), 0);
+  return root.querySelector(".modal");
+}
+function openEvent(e, preset = {}){
+  const isNew = !e;
+  const types = getTypes();
+  const v = Object.assign({}, e || { title:"", type:types[0].id, level:"", date:key(state.cursor), start:"10:00", end:"11:00", place:"", notes:"" }, preset);
+  if (!typeOf(v.type)) v.type = types[0].id;
+  const m = modal(`
+    <h2>${isNew ? "Nueva clase o evento" : "Editar"}</h2>
+    <form id="evf" class="fgrid" autocomplete="off">
+      <div class="field full"><label for="f_title">Título</label><input id="f_title" value="${esc(v.title)}" placeholder="Ej.: B1 · Grupo de los martes" maxlength="120"></div>
+      <div class="field full"><label>Tipo</label><div class="types">${types.map(t => `<label style="--c:${safeColor(t.color)}"><input type="radio" name="f_type" value="${esc(t.id)}"${t.id===v.type?" checked":""}><i></i>${esc(t.label)}</label>`).join("")}<button type="button" class="btn sm ghost" id="f_types">+ Nuevo tipo / editar</button></div></div>
+      <div class="field"><label for="f_date">Fecha</label><input id="f_date" type="date" value="${esc(v.date)}"></div>
+      <div class="field"><label for="f_level">Nivel (MCER)</label><select id="f_level">${LEVELS.map(l => `<option value="${l}"${l===v.level?" selected":""}>${l||"Sin nivel"}</option>`).join("")}</select></div>
+      <div class="field"><label for="f_start">Empieza</label><input id="f_start" type="time" value="${esc(v.start)}" step="300"></div>
+      <div class="field"><label for="f_end">Termina</label><input id="f_end" type="time" value="${esc(v.end)}" step="300"></div>
+      <div class="field full"><label for="f_place">Aula o enlace</label><input id="f_place" value="${esc(v.place)}" placeholder="Ej.: Aula 3 · Zoom" maxlength="160"></div>
+      <div class="field full"><label for="f_notes">Notas</label><textarea id="f_notes" placeholder="Tema, material, deberes…" maxlength="2000">${esc(v.notes)}</textarea></div>
+      ${isNew ? `<div class="full check"><input type="checkbox" id="f_rep"><label for="f_rep">Repetir cada semana hasta</label><input id="f_until" type="date" value="${esc(key(addDays(parse(v.date), 7*12)))}" aria-label="Repetir hasta" style="border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:5px 8px"></div>` : (v.seriesId ? `<p class="full empty">Esta clase forma parte de una serie semanal. Los cambios se aplican solo a esta fecha.</p>` : "")}
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full">
+        ${!isNew ? `<div style="display:flex;gap:6px;flex-wrap:wrap" id="delzone"><button type="button" class="btn danger" id="f_del">Eliminar</button></div>` : ""}
+        <div class="r"><button type="button" class="btn" id="f_cancel">Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+      </div>
+    </form>`);
+  m.querySelector("#f_cancel").onclick = closeModal;
+  m.querySelector("#f_types").onclick = () => {
+    const draft = {
+      title: m.querySelector("#f_title").value, type: (m.querySelector("input[name=f_type]:checked")||{}).value || v.type,
+      level: m.querySelector("#f_level").value, date: m.querySelector("#f_date").value,
+      start: m.querySelector("#f_start").value, end: m.querySelector("#f_end").value,
+      place: m.querySelector("#f_place").value, notes: m.querySelector("#f_notes").value
+    };
+    openTypes(() => openEvent(e, draft), () => openEvent(e, draft));
+  };
+  const startIn = m.querySelector("#f_start"), endIn = m.querySelector("#f_end");
+  let dur = mins(v.end) - mins(v.start);
+  startIn.onchange = () => { if (dur > 0) endIn.value = hhmm(Math.min(mins(startIn.value)+dur, 23*60+59)); };
+  endIn.onchange = () => { dur = mins(endIn.value) - mins(startIn.value); };
+  const del = m.querySelector("#f_del");
+  if (del) del.onclick = () => {
+    const z = m.querySelector("#delzone");
+    z.innerHTML = `<button type="button" class="btn danger" id="d1">${v.seriesId ? "Solo esta" : "Sí, eliminar"}</button>${v.seriesId ? `<button type="button" class="btn danger" id="d2">Esta y las siguientes</button>` : ""}<button type="button" class="btn ghost" id="d0">No</button>`;
+    z.querySelector("#d1").onclick = () => { Store.del(v.id); closeModal(); };
+    z.querySelector("#d0").onclick = () => { closeModal(); openEvent(e); };
+    const d2 = z.querySelector("#d2"); if (d2) d2.onclick = () => { Store.events().filter(x => x.seriesId === v.seriesId && x.date >= v.date).forEach(x => Store.del(x.id)); closeModal(); };
+  };
+  m.querySelector("#evf").onsubmit = ev => {
+    ev.preventDefault();
+    const err = m.querySelector("#f_err");
+    const data = {
+      title: m.querySelector("#f_title").value.trim(),
+      type: (m.querySelector("input[name=f_type]:checked")||{}).value || "clase",
+      level: m.querySelector("#f_level").value,
+      date: m.querySelector("#f_date").value,
+      start: startIn.value, end: endIn.value,
+      place: m.querySelector("#f_place").value.trim(),
+      notes: m.querySelector("#f_notes").value.trim()
+    };
+    const fail = msg => { err.textContent = msg; err.hidden = false; };
+    if (!data.title) return fail("Escribe un título, por ejemplo «A2 · Grupo de la tarde».");
+    if (!data.date) return fail("Elige una fecha.");
+    if (!data.start || !data.end) return fail("Indica la hora de inicio y de fin.");
+    if (mins(data.end) <= mins(data.start)) return fail("La hora de fin tiene que ser posterior a la de inicio.");
+    if (!isNew) { Store.put(Object.assign({}, e, data)); closeModal(); return; }
+    const rep = m.querySelector("#f_rep").checked, until = m.querySelector("#f_until").value;
+    if (rep) {
+      if (!until || until <= data.date) return fail("Elige una fecha final posterior a la primera clase.");
+      const sid = uid("s"); let d = parse(data.date), n = 0;
+      while (key(d) <= until && n < 60) { Store.put(Object.assign({ id: uid("e"), kind: "event", seriesId: sid, createdAt: Date.now() }, data, { date: key(d) })); d = addDays(d, 7); n++; }
+      flash(`Se han creado ${n} clases semanales.`);
+    } else Store.put(Object.assign({ id: uid("e"), kind: "event", createdAt: Date.now() }, data));
+    state.cursor = parse(data.date);
+    closeModal(); render();
+  };
+}
+function openTypes(onDone, onCancel){
+  let list = getTypes().map(t => Object.assign({}, t));
+  const remap = {};            // deleted type id -> replacement id
+  let pendingDel = null, err = "";
+  let newColor = PRESETS.find(c => !list.some(t => t.color.toLowerCase() === c)) || PRESETS[0];
+  let newLabel = "";
+  const resolve = id => { let n = 0; while (remap[id] && n++ < 50) id = remap[id]; return id; };
+  const usage = id => Store.events().filter(e => resolve(e.type) === id).length;
+  const sync = m => {
+    m.querySelectorAll(".tyrow[data-i]").forEach(r => {
+      const t = list[+r.dataset.i]; if (!t) return;
+      t.label = r.querySelector(".ty-label").value; t.color = r.querySelector(".ty-color").value; t.lective = r.querySelector(".ty-lect").checked;
+    });
+    const nl = m.querySelector("#ty_new"); if (nl) newLabel = nl.value;
+    const nc = m.querySelector("#ty_newc"); if (nc) newColor = nc.value;
+  };
+  const draw = () => {
+    const m = modal(`
+      <h2>Tipos de clase y evento</h2>
+      <p class="empty">Cambia el nombre o el color, marca cuáles son horas lectivas (cuentan en el resumen semanal) y elimina los que no uses.</p>
+      <ul class="tylist">${list.map((t,i) => `
+        <li class="tyrow" data-i="${i}">
+          <input type="color" class="ty-color" value="${esc(safeColor(t.color))}" aria-label="Color de ${esc(t.label)}">
+          <input class="ty-label" value="${esc(t.label)}" maxlength="40" aria-label="Nombre del tipo">
+          <label class="check ty-l"><input type="checkbox" class="ty-lect"${t.lective?" checked":""}>Lectiva</label>
+          <button type="button" class="iconbtn" data-del="${i}" aria-label="Eliminar ${esc(t.label)}" title="Eliminar">✕</button>
+        </li>
+        ${pendingDel === i ? `<li class="tydel">
+          <span>${usage(t.id)} ${usage(t.id) === 1 ? "evento usa" : "eventos usan"} «${esc(t.label)}». Pásalos a:</span>
+          <select id="ty_target">${list.filter((_,j) => j !== i).map(o => `<option value="${esc(o.id)}">${esc(o.label)}</option>`).join("")}</select>
+          <button type="button" class="btn sm danger" id="ty_confirm">Eliminar tipo</button>
+          <button type="button" class="btn sm ghost" id="ty_keep">Cancelar</button>
+        </li>` : ""}`).join("")}
+      </ul>
+      <div class="tynew">
+        <div class="eyebrow">Nuevo tipo</div>
+        <div class="tyrow">
+          <input type="color" id="ty_newc" value="${esc(newColor)}" aria-label="Color del nuevo tipo">
+          <input id="ty_new" value="${esc(newLabel)}" placeholder="Ej.: Taller de conversación" maxlength="40" aria-label="Nombre del nuevo tipo">
+          <button type="button" class="btn sm" id="ty_add">Añadir</button>
+        </div>
+        <div class="swatches">${PRESETS.map(c => `<button type="button" class="sw${c===newColor.toLowerCase()?" on":""}" data-sw="${c}" style="--c:${c}" aria-label="Usar color ${c}"></button>`).join("")}</div>
+      </div>
+      ${err ? `<p class="err">${esc(err)}</p>` : ""}
+      <div class="mfoot"><div class="r"><button type="button" class="btn" id="ty_cancel">Cancelar</button><button type="button" class="btn primary" id="ty_save">Guardar tipos</button></div></div>`);
+    m.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+      sync(m); err = "";
+      const i = +b.dataset.del;
+      if (list.length <= 1) { err = "Necesitas al menos un tipo."; draw(); return; }
+      if (usage(list[i].id) === 0) { list.splice(i, 1); pendingDel = null; }
+      else pendingDel = i;
+      draw();
+    });
+    const conf = m.querySelector("#ty_confirm");
+    if (conf) conf.onclick = () => { sync(m); const t = list[pendingDel]; remap[t.id] = m.querySelector("#ty_target").value; list.splice(pendingDel, 1); pendingDel = null; draw(); };
+    const keep = m.querySelector("#ty_keep"); if (keep) keep.onclick = () => { sync(m); pendingDel = null; draw(); };
+    m.querySelectorAll("[data-sw]").forEach(b => b.onclick = () => { sync(m); newColor = b.dataset.sw; draw(); m.ownerDocument.querySelector("#ty_new")?.focus(); });
+    const add = () => {
+      sync(m); err = "";
+      const label = newLabel.trim();
+      if (!label) { err = "Escribe un nombre para el nuevo tipo."; draw(); return; }
+      if (list.some(t => t.label.trim().toLowerCase() === label.toLowerCase())) { err = "Ya tienes un tipo con ese nombre."; draw(); return; }
+      list.push({ id: uid("ty"), label, color: safeColor(newColor), lective: false });
+      newLabel = ""; newColor = PRESETS.find(c => !list.some(t => t.color.toLowerCase() === c)) || PRESETS[0];
+      draw();
+    };
+    m.querySelector("#ty_add").onclick = add;
+    m.querySelector("#ty_new").onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); add(); } };
+    m.querySelector("#ty_cancel").onclick = () => { closeModal(); if (onCancel) onCancel(); };
+    m.querySelector("#ty_save").onclick = () => {
+      sync(m); err = "";
+      if (list.some(t => !t.label.trim())) { err = "Todos los tipos necesitan un nombre."; draw(); return; }
+      const clean = list.map(t => ({ id: t.id, label: t.label.trim(), color: safeColor(t.color), lective: !!t.lective }));
+      const valid = new Set(clean.map(t => t.id));
+      Store.put({ id: SETTINGS_ID, kind: "settings", types: clean });
+      Store.events().forEach(ev => {
+        let target = resolve(ev.type);
+        if (!valid.has(target)) target = clean[0].id;
+        if (target !== ev.type) Store.put(Object.assign({}, ev, { type: target }));
+      });
+      closeModal(); flash("Tipos guardados."); if (onDone) onDone();
+    };
+  };
+  draw();
+}
+function openTodo(t){
+  const isNew = !t;
+  const v = t || { text:"", date:key(state.cursor), cat:lastCat, done:false };
+  const m = modal(`
+    <h2>${isNew ? "Nueva tarea" : "Editar tarea"}</h2>
+    <form id="tdf" class="fgrid" autocomplete="off">
+      <div class="field full"><label for="g_text">Tarea</label><input id="g_text" value="${esc(v.text)}" placeholder="Ej.: Preparar fichas del subjuntivo" maxlength="200"></div>
+      <div class="field full"><label for="g_date">Día</label><input id="g_date" type="date" value="${esc(v.date)}"></div>
+      <p class="err full" id="g_err" hidden></p>
+      <div class="mfoot full">${!isNew?`<button type="button" class="btn danger" id="g_del">Eliminar</button>`:""}
+        <div class="r"><button type="button" class="btn" id="g_cancel">Cancelar</button><button type="submit" class="btn primary">Guardar</button></div></div>
+    </form>`);
+  m.querySelector("#g_cancel").onclick = closeModal;
+  const del = m.querySelector("#g_del"); if (del) del.onclick = () => { Store.del(t.id); closeModal(); };
+  m.querySelector("#tdf").onsubmit = ev => {
+    ev.preventDefault();
+    const text = m.querySelector("#g_text").value.trim(), date = m.querySelector("#g_date").value;
+    const err = m.querySelector("#g_err");
+    if (!text) { err.textContent = "Escribe la tarea."; err.hidden = false; return; }
+    if (!date) { err.textContent = "Elige un día."; err.hidden = false; return; }
+    Store.put(Object.assign({ id: uid("t"), kind: "todo", done: false, createdAt: Date.now() }, t || {}, { text, date }));
+    closeModal();
+  };
+}
+
+/* ---------- examples ---------- */
+function loadExamples(){
+  const s = startOfWeek(new Date()), k = i => key(addDays(s, i)), now = Date.now();
+  const E = (i, start, end, title, type, level, place) => ({ id: uid("e"), kind:"event", date:k(i), start, end, title, type, level, place, notes:"", example:true, createdAt:now });
+  const T = (i, text, cat, done) => ({ id: uid("t"), kind:"todo", date:k(i), text, cat, done:!!done, example:true, createdAt:now+i });
+  [
+    E(0,"09:30","11:00","A2 · Grupo de mañana","clase","A2","Aula 2"),
+    E(0,"18:00","19:30","B1 · Conversación","clase","B1","Aula 4"),
+    E(1,"10:00","11:00","Clase particular · Hanna","particular","B2","Zoom"),
+    E(1,"16:00","17:00","Preparar unidad 5","prep","",""),
+    E(2,"09:30","11:00","A2 · Grupo de mañana","clase","A2","Aula 2"),
+    E(2,"13:00","14:00","Reunión de departamento","reunion","","Sala de profes"),
+    E(3,"18:00","19:30","B1 · Conversación","clase","B1","Aula 4"),
+    E(4,"10:00","12:00","Simulacro DELE B2","examen","B2","Aula 1"),
+    T(0,"Imprimir fichas de pretérito indefinido","prep",true),
+    T(0,"Responder correos de alumnos nuevos","alumnos",true),
+    T(1,"Corregir redacciones del B1","corregir"),
+    T(1,"Enviar enlace de Zoom a Hanna","alumnos",true),
+    T(2,"Preparar juego de vocabulario: la casa","prep"),
+    T(3,"Subir audios al aula virtual","admin"),
+    T(4,"Corregir simulacro DELE (comprensión lectora)","corregir"),
+    T(4,"Registrar asistencia del mes","admin")
+  ].forEach(i => Store.put(i));
+}
+
+/* ---------- wiring ---------- */
+document.querySelectorAll(".seg button").forEach(b => b.onclick = () => setView(b.dataset.view));
+$("#prev").onclick = () => shift(-1);
+$("#next").onclick = () => shift(1);
+$("#today").onclick = () => { state.cursor = new Date(); render(); };
+$("#btnNewEvent").onclick = () => openEvent(null);
+$("#btnNewTodo").onclick = () => openTodo(null);
+const PAL_INFO = {
+  beige: { name: "Chocolate y beige", desc: "Fondo chocolate con detalles en beige.", a: "#3a2518", b: "#e6cfa8" },
+  celeste: { name: "Celeste y burdeos", desc: "Fondo celeste con detalles en burdeos.", a: "#d6eaf6", b: "#7a1e33" },
+  blanco: { name: "Blanco y negro", desc: "Fondo blanco con letras negras.", a: "#ffffff", b: "#000000" }
+};
+function openDesign(){
+  const draw = () => {
+    const cur = currentPalette();
+    const m = modal(`
+      <h2>Diseño</h2>
+      <p class="empty">Elige los colores de tu agenda. El cambio se ve al momento.</p>
+      <div class="palopts" role="radiogroup" aria-label="Colores">
+        ${PALETTES.map(p => `<button type="button" role="radio" aria-checked="${p === cur}" class="palopt" data-pal="${p}">
+          <span class="palsw" style="--a:${PAL_INFO[p].a};--b:${PAL_INFO[p].b}"></span>
+          <span class="paltx"><b>${PAL_INFO[p].name}</b><span>${PAL_INFO[p].desc}</span></span>
+          <span class="palck" aria-hidden="true">${p === cur ? "✓" : ""}</span></button>`).join("")}
+      </div>
+      <div class="mfoot"><div class="r"><button type="button" class="btn primary" id="d_ok">Listo</button></div></div>`);
+    m.querySelectorAll("[data-pal]").forEach(b => b.onclick = () => { const p = b.dataset.pal; setPalette(p); draw(); document.querySelector(`#modalRoot [data-pal="${p}"]`)?.focus(); });
+    m.querySelector("#d_ok").onclick = closeModal;
+  };
+  draw();
+}
+$("#btnDesign").onclick = openDesign;
+window.addEventListener("hashchange", () => { const h = location.hash.slice(1); if (VIEWS.includes(h) && h !== state.view) setView(h); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && $("#modalRoot").innerHTML) { closeModal(); return; }
+  if ($("#modalRoot").innerHTML || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  if (e.key === "ArrowLeft") shift(-1);
+  else if (e.key === "ArrowRight") shift(1);
+  else if (e.key === "h" || e.key === "H") { state.cursor = new Date(); render(); }
+});
+setInterval(() => { if (!drag && !$("#modalRoot").innerHTML && state.view !== "mes") renderGrid(state.view === "dia" ? [state.cursor] : Array.from({length:7}, (_,i) => addDays(startOfWeek(state.cursor), i))); }, 60000);
+
+render();
+Store.init();
+})();
+</script>
+
+</body></html>
