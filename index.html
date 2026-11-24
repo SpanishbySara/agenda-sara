@@ -262,10 +262,45 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .swatches{display:flex;flex-wrap:wrap;gap:6px}
 .sw{width:24px;height:24px;border-radius:50%;border:2px solid transparent;background:var(--c);padding:0}
 .sw.on{border-color:var(--ink);box-shadow:inset 0 0 0 2px var(--surface)}
+/* Pantalla de acceso */
+.login{min-height:calc(100vh - 80px);display:grid;place-items:center}
+.login-card{width:min(380px, 100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:26px 22px;display:flex;flex-direction:column;gap:14px}
+.login-card h1{font-family:var(--font-display);font-weight:700;font-size:1.7rem;margin:0;letter-spacing:-.01em}
+.login-card .sub{color:var(--ink-3);font-size:.88rem;margin:-8px 0 4px}
+.login-card .field input{font-size:1rem;padding:10px 12px}
+.pw{position:relative}
+.pw input{padding-right:70px!important}
+.pw button{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:var(--ink-2);font-size:.78rem;font-weight:600;padding:6px 8px;border-radius:6px}
+.pw button:hover{background:var(--surface-2)}
+.login-card .btn.primary{justify-content:center;padding:10px 12px;font-size:.95rem}
+.login-card .btn.primary[disabled]{opacity:.6;cursor:wait}
+.boot{min-height:calc(100vh - 80px);display:grid;place-items:center;color:var(--ink-3)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 
-<div class="wrap">
+<div class="boot" id="boot">Cargando…</div>
+
+<div class="login" id="login" hidden>
+  <form class="login-card" id="loginForm" autocomplete="on" novalidate>
+    <h1>Agenda ELE</h1>
+    <p class="sub">Acceso privado</p>
+    <div class="field">
+      <label for="lg_user">Usuario</label>
+      <input id="lg_user" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="64" required>
+    </div>
+    <div class="field">
+      <label for="lg_pass">Contraseña</label>
+      <div class="pw">
+        <input id="lg_pass" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+        <button type="button" id="lg_show" aria-label="Mostrar contraseña">Mostrar</button>
+      </div>
+    </div>
+    <p class="err" id="lg_err" hidden></p>
+    <button class="btn primary" type="submit" id="lg_btn">Entrar</button>
+  </form>
+</div>
+
+<div class="wrap" id="app" hidden>
   <header class="top">
     <div class="brand">
       <h1>Agenda ELE</h1>
@@ -275,6 +310,7 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
       <button class="btn ghost" id="btnDesign" type="button">Diseño</button>
       <button class="btn" id="btnNewTodo" type="button">+ Tarea</button>
       <button class="btn primary" id="btnNewEvent" type="button">+ Clase o evento</button>
+      <button class="btn ghost" id="btnLogout" type="button">Cerrar sesión</button>
     </div>
   </header>
 
@@ -308,6 +344,31 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 <div id="modalRoot"></div>
 
 <script>
+// Si Firebase no llega a cargar (sin conexión, bloqueo de red), se avisa en vez de quedarse en «Cargando…».
+setTimeout(function(){ if (!window.__agendaReady) { var b = document.getElementById("boot"); if (b && !b.hidden) b.textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página."; } }, 15000);
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, terminate, clearIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Configuración pública del proyecto de Firebase (no es secreta: la protección está en las reglas de Firestore).
+const firebaseConfig = {
+  apiKey: "AIzaSyAYfJe6-oNb7C9jcRc0FNdx2oX3-kosGeM",
+  authDomain: "agenda-sara-d399b.firebaseapp.com",
+  projectId: "agenda-sara-d399b",
+  storageBucket: "agenda-sara-d399b.firebasestorage.app",
+  messagingSenderId: "289375730705",
+  appId: "1:289375730705:web:4fce96382113d813a5c5b0"
+};
+// El usuario se convierte en una dirección interna con un dominio reservado (.invalid) que nadie puede registrar.
+const LOGIN_DOMAIN = "agenda-ele.invalid";
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+let fdb;
+try { fdb = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }); }
+catch (e) { fdb = initializeFirestore(fbApp, {}); }
+
 (() => {
 "use strict";
 const DEFAULT_TYPES = [
@@ -350,40 +411,50 @@ const colorOf = t => { const x = typeOf(t); return x ? safeColor(x.color) : "#6b
 const hoursFmt = m => { const h = m/60; return (Math.round(h*10)/10).toString().replace(".", ",") + " h"; };
 
 /* ---------- store ---------- */
+// Los datos viven en Firestore (agendas/principal/items). Solo el UID autorizado en las reglas puede leerlos o escribirlos.
+const clean = o => JSON.parse(JSON.stringify(o));
+const errMsg = e => (e && e.code === "permission-denied")
+  ? "Tu usuario no tiene permiso para usar esta agenda. Revisa el UID en las reglas de Firestore."
+  : "No se pudo guardar. Revisa tu conexión.";
 const Store = {
-  items: new Map(), mode: "loading", col: null,
-  loadLocal(){ try { const raw = localStorage.getItem(LSKEY); if (raw) { const arr = JSON.parse(raw); this.items = new Map(arr.map(i => [i.id, i])); } } catch(e){} },
-  saveLocal(){ try { localStorage.setItem(LSKEY, JSON.stringify([...this.items.values()])); } catch(e){} },
-  async init(){
-    this.loadLocal();
-    let db = null, user = null, id = null;
-    try {
-      if (window.claude && typeof window.claude.use === "function") {
-        [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
-        if (db && user) id = await user.id();
-      }
-    } catch(e){ db = null; }
-    if (!db || !id) { this.mode = "local"; render(); return; }
-    this.col = db.collection("data/users/" + id);
-    let settled = false;
-    const timer = setTimeout(() => { if (!settled) { this.mode = "local"; this.col = null; render(); } }, 10000);
-    this.col.onSnapshot(snap => {
-      settled = true; clearTimeout(timer);
+  items: new Map(), mode: "loading", col: null, unsub: null, offline: false, serverChecked: false,
+  start(){
+    this.stop();
+    this.mode = "loading"; this.serverChecked = false;
+    this.col = collection(fdb, "agendas", "principal", "items");
+    render();
+    this.unsub = onSnapshot(this.col, { includeMetadataChanges: true }, snap => {
       this.mode = "cloud";
-      this.items = new Map(snap.docs.map(d => { const v = d.data() || {}; return [d.id, Object.assign({}, v, {id: d.id})]; }));
-      this.saveLocal(); render();
+      this.offline = snap.metadata.fromCache;
+      if (!snap.metadata.fromCache) this.serverChecked = true;
+      this.items = new Map(snap.docs.map(d => [d.id, Object.assign({}, d.data() || {}, { id: d.id })]));
+      render();
     }, err => {
-      settled = true; clearTimeout(timer);
-      this.mode = "local"; this.col = null; render();
+      this.mode = "error"; this.errorText = errMsg(err); render();
     });
   },
+  stop(){
+    if (this.unsub) { this.unsub(); this.unsub = null; }
+    this.items = new Map(); this.col = null; this.mode = "loading";
+  },
   put(item){
-    this.items.set(item.id, item); this.saveLocal(); render();
-    if (this.col) { const { id, ...data } = item; this.col.doc(id).set(data).catch(() => flash("No se pudo guardar. Revisa tu conexión.")); }
+    if (!this.col) return;
+    this.items.set(item.id, item); render();
+    const { id, ...data } = item;
+    setDoc(doc(this.col, id), clean(data)).catch(e => flash(errMsg(e)));
   },
   del(id){
-    this.items.delete(id); this.saveLocal(); render();
-    if (this.col) this.col.doc(id).delete().catch(() => flash("No se pudo borrar. Revisa tu conexión."));
+    if (!this.col) return;
+    this.items.delete(id); render();
+    deleteDoc(doc(this.col, id)).catch(e => flash(errMsg(e)));
+  },
+  async putMany(list){
+    if (!this.col) return;
+    for (let i = 0; i < list.length; i += 400) {
+      const b = writeBatch(fdb);
+      list.slice(i, i + 400).forEach(item => { const { id, ...data } = item; b.set(doc(this.col, id), clean(data)); });
+      await b.commit();
+    }
   },
   events(){ return [...this.items.values()].filter(i => i.kind === "event"); },
   todos(){ return [...this.items.values()].filter(i => i.kind === "todo"); },
@@ -464,6 +535,15 @@ function renderPeriod(){
 function renderNotice(){
   const el = $("#notice");
   if (noticeMsg) { el.innerHTML = `<div class="notice" role="status"><p>${esc(noticeMsg)}</p></div>`; return; }
+  if (Store.mode === "error") { el.innerHTML = `<div class="notice" role="alert"><p>${esc(Store.errorText)}</p></div>`; return; }
+  const legacy = legacyPending();
+  if (legacy.length) {
+    el.innerHTML = `<div class="notice"><p><b>Este navegador tiene ${legacy.length} ${legacy.length === 1 ? "elemento" : "elementos"} de tu agenda anterior</b> (clases, tareas y ajustes guardados antes de activar el inicio de sesión). ¿Quieres pasarlos a tu cuenta para verlos en todos tus dispositivos?</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" id="impLegacy">Importar a mi cuenta</button><button class="btn ghost" type="button" id="skipLegacy">Ahora no</button></div></div>`;
+    $("#impLegacy").onclick = importLegacy;
+    $("#skipLegacy").onclick = () => { legacySkipped = true; render(); };
+    return;
+  }
   if (Store.mode !== "loading" && Store.events().length + Store.todos().length === 0) {
     el.innerHTML = `<div class="notice"><p><b>Tu agenda está vacía.</b> Añade tu primera clase con «+ Clase o evento», o toca una hora en el calendario. Puedes cargar una semana de ejemplo para ver cómo funciona y borrarla después.</p><button class="btn" type="button" id="loadEx">Cargar semana de ejemplo</button></div>`;
     $("#loadEx").onclick = loadExamples; return;
@@ -824,8 +904,40 @@ function renderWeek(){
 
 function renderStatus(){
   const el = $("#status");
-  el.className = "status " + (Store.mode === "cloud" ? "cloud" : Store.mode === "local" ? "local" : "");
-  el.querySelector("span").textContent = Store.mode === "cloud" ? "Guardado en tu cuenta. Solo tú ves estos datos." : Store.mode === "local" ? "Guardado solo en este navegador. Inicia sesión en Claude para guardarlo en tu cuenta." : "Conectando…";
+  const off = Store.mode === "cloud" && Store.offline;
+  el.className = "status " + (Store.mode === "cloud" && !off ? "cloud" : Store.mode === "loading" ? "" : "local");
+  el.querySelector("span").textContent =
+    Store.mode === "error" ? "Sin acceso a los datos." :
+    off ? "Sin conexión. Los cambios se guardarán en tu cuenta al volver la conexión." :
+    Store.mode === "cloud" ? "Sincronizado con tu cuenta. Solo tú puedes ver estos datos." : "Conectando…";
+}
+
+/* ---------- datos anteriores (localStorage) ---------- */
+// La versión sin inicio de sesión guardaba todo en este navegador. Se ofrece importarlo una vez; la copia local no se borra.
+const LEGACY_DONE = LSKEY + "-importado";
+let legacySkipped = false;
+function legacyItems(){
+  try {
+    const raw = localStorage.getItem(LSKEY); if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter(i => i && typeof i.id === "string" && i.id && i.id.length < 200) : [];
+  } catch(e){ return []; }
+}
+function legacyPending(){
+  if (legacySkipped || Store.mode !== "cloud" || !Store.serverChecked) return [];
+  try { if (localStorage.getItem(LEGACY_DONE)) return []; } catch(e){}
+  return legacyItems().filter(i => !Store.items.has(i.id));
+}
+async function importLegacy(){
+  const list = legacyPending();
+  const btn = $("#impLegacy"); if (btn) { btn.disabled = true; btn.textContent = "Importando…"; }
+  try {
+    await Store.putMany(list);
+    try { localStorage.setItem(LEGACY_DONE, new Date().toISOString()); } catch(e){}
+    flash(`Listo: ${list.length} ${list.length === 1 ? "elemento importado" : "elementos importados"} a tu cuenta.`);
+  } catch(e){
+    flash("No se pudo importar. Revisa tu conexión e inténtalo de nuevo.");
+  }
 }
 
 /* ---------- modals ---------- */
@@ -1087,8 +1199,58 @@ document.addEventListener("keydown", e => {
 });
 setInterval(() => { if (!drag && !$("#modalRoot").innerHTML && state.view !== "mes") renderGrid(state.view === "dia" ? [state.cursor] : Array.from({length:7}, (_,i) => addDays(startOfWeek(state.cursor), i))); }, 60000);
 
-render();
-Store.init();
+/* ---------- acceso ---------- */
+const show = which => {
+  $("#boot").hidden = which !== "boot";
+  $("#login").hidden = which !== "login";
+  $("#app").hidden = which !== "app";
+};
+const toEmail = u => u.trim().toLowerCase() + "@" + LOGIN_DOMAIN;
+$("#lg_show").onclick = () => {
+  const p = $("#lg_pass"), vis = p.type === "password";
+  p.type = vis ? "text" : "password";
+  $("#lg_show").textContent = vis ? "Ocultar" : "Mostrar";
+  $("#lg_show").setAttribute("aria-label", vis ? "Ocultar contraseña" : "Mostrar contraseña");
+};
+$("#loginForm").onsubmit = async ev => {
+  ev.preventDefault();
+  const err = $("#lg_err"), btn = $("#lg_btn");
+  const u = $("#lg_user").value.trim(), p = $("#lg_pass").value;
+  const fail = m => { err.textContent = m; err.hidden = false; };
+  err.hidden = true;
+  if (!u || !p) return fail("Escribe tu usuario y tu contraseña.");
+  if (!/^[a-zA-Z0-9._-]{1,64}$/.test(u)) return fail("El usuario solo puede tener letras sin tilde, números, punto, guion y guion bajo.");
+  btn.disabled = true; btn.textContent = "Entrando…";
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+    await signInWithEmailAndPassword(auth, toEmail(u), p);
+    $("#lg_pass").value = "";
+  } catch (e) {
+    const c = e && e.code || "";
+    fail(c === "auth/too-many-requests" ? "Demasiados intentos. Espera unos minutos y vuelve a intentarlo."
+       : c === "auth/network-request-failed" ? "No hay conexión a internet. Revisa tu conexión y vuelve a intentarlo."
+       : "Usuario o contraseña incorrectos.");
+  } finally {
+    btn.disabled = false; btn.textContent = "Entrar";
+  }
+};
+$("#btnLogout").onclick = async () => {
+  const b = $("#btnLogout"); b.disabled = true; b.textContent = "Cerrando…";
+  Store.stop();
+  try { await signOut(auth); } catch(e){}
+  // Borra la copia local de Firestore de este dispositivo antes de recargar.
+  try { await terminate(fdb); await clearIndexedDbPersistence(fdb); } catch(e){}
+  location.reload();
+};
+
+applyPalette();
+show("boot");
+window.__agendaReady = true;
+onAuthStateChanged(auth, user => {
+  closeModal();
+  if (user) { show("app"); Store.start(); }
+  else { Store.stop(); show("login"); setTimeout(() => $("#lg_user").focus(), 0); }
+});
 })();
 </script>
 
