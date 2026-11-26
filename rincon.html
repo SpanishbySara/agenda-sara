@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mi rincón de profe</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="icono-agenda.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="rincon/estilos.css">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="boot" id="boot">Cargando Mi rincón de profe…</div>
+
+<div class="login" id="login" hidden>
+  <form id="loginForm" autocomplete="on">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" aria-hidden="true" width="34" height="34"><circle cx="20" cy="20" r="19" fill="var(--burdeos-soft)"/><path d="M9 26.5c3.5-2 7.5-2 11 0 3.5-2 7.5-2 11 0V13c-3.5-2-7.5-2-11 0-3.5-2-7.5-2-11 0z" fill="none" stroke="var(--burdeos)" stroke-width="1.6" stroke-linejoin="round"/><path d="M20 13v13.5" stroke="var(--burdeos)" stroke-width="1.6"/></svg>
+      <div><b>Mi rincón de profe</b><small>Entra con el usuario y la contraseña de tu agenda</small></div>
+    </div>
+    <label>Usuario<input id="lg_user" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+    <label>Contraseña<input id="lg_pass" type="password" autocomplete="current-password"></label>
+    <p class="err" id="lg_err" hidden></p>
+    <button class="btn primary" id="lg_btn" type="submit">Entrar</button>
+  </form>
+</div>
+
+<div class="shell" id="app" hidden>
+  <aside class="side" id="side" aria-label="Navegación principal">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="var(--burdeos-soft)"/><path d="M9 26.5c3.5-2 7.5-2 11 0 3.5-2 7.5-2 11 0V13c-3.5-2-7.5-2-11 0-3.5-2-7.5-2-11 0z" fill="none" stroke="var(--burdeos)" stroke-width="1.6" stroke-linejoin="round"/><path d="M20 13v13.5" stroke="var(--burdeos)" stroke-width="1.6"/><path d="M27 9.5l3.5 3.5-6 6-4 1 1-4z" fill="var(--terracota-soft)" stroke="var(--terracota)" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <div><b>Mi rincón de profe</b><small>ELE · coordinación</small></div>
+    </div>
+    <nav id="nav" style="display:flex;flex-direction:column;gap:22px"></nav>
+  </aside>
+  <div class="scrim-menu" id="scrimMenu"></div>
+  <div class="main">
+    <div class="top">
+      <button class="menubtn" id="menuBtn" type="button" aria-label="Abrir menú"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <span class="muted" style="font-size:.85rem">Lee tu agenda en tiempo real · no la modifica</span>
+    </div>
+    <main class="view" id="view"></main>
+  </div>
+</div>
+
+<script type="module" src="rincon/app.js"></script>
+</body>
+</html>
