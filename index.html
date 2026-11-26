@@ -251,7 +251,19 @@ button{cursor:pointer}
 .mcell.drop{outline:2px dashed var(--accent);outline-offset:-3px;background:var(--accent-soft)}
 body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .tylist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.tyrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.tyrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
+/* Alumnos del mes */
+.stbl-wrap{overflow-x:auto}
+.stbl{width:100%;border-collapse:collapse;font-size:.84rem;font-variant-numeric:tabular-nums}
+.stbl th{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:600;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}
+.stbl th:first-child,.stbl td:first-child{text-align:left;padding-left:0}
+.stbl td{padding:6px;text-align:right;border-bottom:1px solid var(--line-2);vertical-align:top}
+.stbl td:first-child{font-weight:500;overflow-wrap:anywhere}
+.stbl td.zero{color:var(--ink-3)}
+.stbl tr:last-child td{border-bottom:0}
+.seg.sm button{padding:4px 10px;font-size:.78rem}
+.hint{font-size:.78rem;color:var(--ink-2);background:var(--surface-2);border-radius:8px;padding:8px 10px;margin:0;display:flex;flex-direction:column;gap:3px}
+.hint b{font-weight:600;color:var(--ink)}
 .tynew .tyrow{grid-template-columns:auto minmax(0,1fr) auto}
 .tyrow input[type=color],.tynew input[type=color]{width:36px;height:32px;padding:0;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer}
 .tyrow .ty-label,#ty_new{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 9px;min-width:0;width:100%}
@@ -336,6 +348,7 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
       <section class="panel" id="dayTodos"></section>
       <section class="panel" id="weekSummary"></section>
       <section class="panel" id="monthSummary" hidden></section>
+      <section class="panel" id="studentsSummary" hidden></section>
       <div class="legend" id="legend"></div>
       <div class="status" id="status"><i></i><span>Conectando…</span></div>
     </aside>
@@ -513,6 +526,8 @@ function render(){
   renderDayTodos(); renderWeek(); renderStatus(); renderLegend();
   $("#weekSummary").hidden = state.view !== "semana";
   $("#monthSummary").hidden = state.view !== "mes";
+  $("#studentsSummary").hidden = state.view !== "mes" || !getTypes().some(isStudentType);
+  if (state.view === "mes") renderStudents();
   $("#dayTodos").hidden = state.view === "mes";
   if (state.view === "mes") renderMonthHours();
   $("#legend").hidden = true;
@@ -778,6 +793,74 @@ function wireTodos(root){
 }
 
 let lastCat = "prep";
+/* ---------- alumnos (tipos marcados «Por alumno», p. ej. Clase (Irene)) ---------- */
+// Un tipo cuenta por alumno si lo marcaste así; si nunca se ha marcado ni desmarcado, se activa solo cuando su nombre contiene «Irene».
+const isStudentType = t => !!t && (t.students === true || (t.students === undefined && /irene/i.test(t.label || "")));
+const nameKey = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+// «Ana» → individual de Ana. «Workshop Ana, Pedro y Luis» → workshop con esos tres alumnos.
+function parseClass(title){
+  const t = String(title || "").replace(/\s+/g, " ").trim();
+  if (/\bworkshops?\b/i.test(t)) {
+    const rest = t.replace(/\bworkshops?\b/ig, " ");
+    const seen = new Set(), names = [];
+    rest.split(/\s*(?:,|;|\/|\+|&|·|\s[-–—]\s|\sy\s|\se\s)\s*/i)
+      .map(s => s.replace(/^[\s:·.\-–—()]+|[\s:·.\-–—()]+$/g, "").trim())
+      .filter(Boolean)
+      .forEach(n => { const k = nameKey(n); if (!seen.has(k)) { seen.add(k); names.push(n); } });
+    return { kind: "workshop", names };
+  }
+  return { kind: "individual", names: t ? [t] : [] };
+}
+let studentScope = "all";
+try { studentScope = localStorage.getItem(LSKEY + "-st") === "given" ? "given" : "all"; } catch(e){}
+function renderStudents(){
+  const el = $("#studentsSummary");
+  const flagged = getTypes().filter(isStudentType);
+  if (!flagged.length) { el.innerHTML = ""; return; }
+  const ids = new Set(flagged.map(t => t.id));
+  const c = state.cursor, y = c.getFullYear(), mo = c.getMonth();
+  const first = key(new Date(y, mo, 1)), last = key(new Date(y, mo + 1, 0));
+  const tk = todayKey(), now = new Date(), nowM = now.getHours()*60 + now.getMinutes();
+  const isGiven = e => e.date < tk || (e.date === tk && mins(e.end) <= nowM);
+  const dur = e => Math.max(0, mins(e.end) - mins(e.start));
+  const evs = Store.events().filter(e => ids.has(e.type) && e.date >= first && e.date <= last && (studentScope === "all" || isGiven(e)));
+  const people = new Map();
+  let nInd = 0, nWs = 0, totalMin = 0;
+  evs.forEach(e => {
+    const p = parseClass(e.title);
+    if (p.kind === "workshop") nWs++; else nInd++;
+    totalMin += dur(e);
+    p.names.forEach(n => {
+      const k = nameKey(n);
+      const r = people.get(k) || { name: n, ind: 0, ws: 0, min: 0 };
+      if (p.kind === "workshop") r.ws++; else r.ind++;
+      r.min += dur(e);
+      people.set(k, r);
+    });
+  });
+  const rows = [...people.values()].sort((a, b) => (b.ind + b.ws) - (a.ind + a.ws) || a.name.localeCompare(b.name, "es"));
+  const typeNames = flagged.map(t => t.label).join(", ");
+  el.innerHTML = `
+    <div class="sh"><div><div class="eyebrow">Alumnos del mes</div><h2>${esc(typeNames)}</h2></div>
+      <div class="seg sm" role="group" aria-label="Qué clases contar">
+        <button type="button" data-st="all" aria-pressed="${studentScope === "all"}">Todo el mes</button>
+        <button type="button" data-st="given" aria-pressed="${studentScope === "given"}">Ya dadas</button>
+      </div></div>
+    <div class="stats">
+      <div class="stat"><span class="v">${nInd}</span><span class="l">${nInd === 1 ? "clase individual" : "clases individuales"}</span></div>
+      <div class="stat"><span class="v">${nWs}</span><span class="l">${nWs === 1 ? "workshop" : "workshops"} · ${hoursFmt(totalMin)} en total</span></div>
+    </div>
+    ${rows.length ? `<div class="stbl-wrap"><table class="stbl">
+      <thead><tr><th scope="col">Alumno</th><th scope="col">Indiv.</th><th scope="col">Workshop</th><th scope="col">Horas</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${esc(r.name)}</td><td${r.ind ? "" : ` class="zero"`}>${r.ind}</td><td${r.ws ? "" : ` class="zero"`}>${r.ws}</td><td>${hoursFmt(r.min)}</td></tr>`).join("")}</tbody>
+    </table></div>` : `<p class="empty">${studentScope === "given" ? "Todavía no hay clases dadas este mes." : "No hay clases de este tipo este mes."}</p>`}
+    <p class="empty" style="font-size:.76rem">Individual: el título es solo el nombre del alumno. Workshop: el título lleva «workshop» y los nombres separados por comas o «y».</p>`;
+  el.querySelectorAll("[data-st]").forEach(b => b.onclick = () => {
+    studentScope = b.dataset.st;
+    try { localStorage.setItem(LSKEY + "-st", studentScope); } catch(e){}
+    renderStudents();
+  });
+}
 function setHF(v){ hoursFilter = v; try { localStorage.setItem(LSKEY + "-hf", v); } catch(e){} render(); }
 function renderMonthHours(){
   const c = state.cursor, y = c.getFullYear(), mo = c.getMonth();
@@ -958,6 +1041,7 @@ function openEvent(e, preset = {}){
     <h2>${isNew ? "Nueva clase o evento" : "Editar"}</h2>
     <form id="evf" class="fgrid" autocomplete="off">
       <div class="field full"><label for="f_title">Título</label><input id="f_title" value="${esc(v.title)}" placeholder="Ej.: B1 · Grupo de los martes" maxlength="120"></div>
+      <p class="hint full" id="f_hint" hidden></p>
       <div class="field full"><label>Tipo</label><div class="types">${types.map(t => `<label style="--c:${safeColor(t.color)}"><input type="radio" name="f_type" value="${esc(t.id)}"${t.id===v.type?" checked":""}><i></i>${esc(t.label)}</label>`).join("")}<button type="button" class="btn sm ghost" id="f_types">+ Nuevo tipo / editar</button></div></div>
       <div class="field"><label for="f_date">Fecha</label><input id="f_date" type="date" value="${esc(v.date)}"></div>
       <div class="field"><label for="f_level">Nivel (MCER)</label><select id="f_level">${LEVELS.map(l => `<option value="${l}"${l===v.level?" selected":""}>${l||"Sin nivel"}</option>`).join("")}</select></div>
@@ -973,6 +1057,21 @@ function openEvent(e, preset = {}){
       </div>
     </form>`);
   m.querySelector("#f_cancel").onclick = closeModal;
+  // Pista para los tipos «Por alumno»: cómo se va a registrar la clase según el título.
+  const updHint = () => {
+    const hint = m.querySelector("#f_hint");
+    const tId = (m.querySelector("input[name=f_type]:checked") || {}).value;
+    if (!isStudentType(typeOf(tId))) { hint.hidden = true; return; }
+    const p = parseClass(m.querySelector("#f_title").value);
+    const how = !p.names.length && p.kind === "individual" ? "Escribe el nombre del alumno."
+      : p.kind === "workshop" ? (p.names.length ? `Se registrará como <b>workshop</b> de ${p.names.map(esc).join(", ")}.` : "Se registrará como <b>workshop</b>. Añade los nombres separados por comas o «y».")
+      : `Se registrará como <b>clase individual</b> de ${esc(p.names[0])}.`;
+    hint.innerHTML = `<span>${how}</span><span>Individual: solo el nombre. Workshop: «Workshop» y los nombres, p. ej. «Workshop Ana, Pedro y Luis».</span>`;
+    hint.hidden = false;
+  };
+  m.querySelector("#f_title").addEventListener("input", updHint);
+  m.querySelectorAll("input[name=f_type]").forEach(r => r.addEventListener("change", updHint));
+  updHint();
   m.querySelector("#f_types").onclick = () => {
     const draft = {
       title: m.querySelector("#f_title").value, type: (m.querySelector("input[name=f_type]:checked")||{}).value || v.type,
@@ -1034,7 +1133,7 @@ function openTypes(onDone, onCancel){
   const sync = m => {
     m.querySelectorAll(".tyrow[data-i]").forEach(r => {
       const t = list[+r.dataset.i]; if (!t) return;
-      t.label = r.querySelector(".ty-label").value; t.color = r.querySelector(".ty-color").value; t.lective = r.querySelector(".ty-lect").checked;
+      t.label = r.querySelector(".ty-label").value; t.color = r.querySelector(".ty-color").value; t.lective = r.querySelector(".ty-lect").checked; t.students = r.querySelector(".ty-stud").checked;
     });
     const nl = m.querySelector("#ty_new"); if (nl) newLabel = nl.value;
     const nc = m.querySelector("#ty_newc"); if (nc) newColor = nc.value;
@@ -1042,12 +1141,13 @@ function openTypes(onDone, onCancel){
   const draw = () => {
     const m = modal(`
       <h2>Tipos de clase y evento</h2>
-      <p class="empty">Cambia el nombre o el color, marca cuáles son horas lectivas (cuentan en el resumen semanal) y elimina los que no uses.</p>
+      <p class="empty">Cambia el nombre o el color, marca cuáles son horas lectivas (cuentan en los resúmenes de horas), cuáles se cuentan por alumno (en la vista Mes) y elimina los que no uses.</p>
       <ul class="tylist">${list.map((t,i) => `
         <li class="tyrow" data-i="${i}">
           <input type="color" class="ty-color" value="${esc(safeColor(t.color))}" aria-label="Color de ${esc(t.label)}">
           <input class="ty-label" value="${esc(t.label)}" maxlength="40" aria-label="Nombre del tipo">
           <label class="check ty-l"><input type="checkbox" class="ty-lect"${t.lective?" checked":""}>Lectiva</label>
+          <label class="check ty-l" title="Cuenta las clases de cada alumno en la vista Mes"><input type="checkbox" class="ty-stud"${isStudentType(t)?" checked":""}>Por alumno</label>
           <button type="button" class="iconbtn" data-del="${i}" aria-label="Eliminar ${esc(t.label)}" title="Eliminar">✕</button>
         </li>
         ${pendingDel === i ? `<li class="tydel">
@@ -1095,7 +1195,7 @@ function openTypes(onDone, onCancel){
     m.querySelector("#ty_save").onclick = () => {
       sync(m); err = "";
       if (list.some(t => !t.label.trim())) { err = "Todos los tipos necesitan un nombre."; draw(); return; }
-      const clean = list.map(t => ({ id: t.id, label: t.label.trim(), color: safeColor(t.color), lective: !!t.lective }));
+      const clean = list.map(t => ({ id: t.id, label: t.label.trim(), color: safeColor(t.color), lective: !!t.lective, students: !!t.students }));
       const valid = new Set(clean.map(t => t.id));
       Store.put({ id: SETTINGS_ID, kind: "settings", types: clean });
       Store.events().forEach(ev => {
