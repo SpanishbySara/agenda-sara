@@ -115,7 +115,7 @@ button{cursor:pointer}
 .tg-head .tcount b{color:var(--ink-2);font-weight:600}
 .tg-hours{position:relative}
 .tg-hours span{position:absolute;right:8px;transform:translateY(-50%);font-size:.7rem;color:var(--ink-3);font-variant-numeric:tabular-nums}
-.tg-col{position:relative;border-left:1px solid var(--line-2);cursor:copy;
+.tg-col{position:relative;border-left:1px solid var(--line-2);cursor:copy;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
   background-image:linear-gradient(to bottom, var(--line-2) 1px, transparent 1px);background-size:100% var(--hour)}
 .tg-col.today{background-color:color-mix(in srgb, var(--accent) 4%, transparent)}
 .now{position:absolute;left:0;right:0;height:2px;background:var(--danger);z-index:3;pointer-events:none}
@@ -123,6 +123,8 @@ button{cursor:pointer}
 .ev{position:absolute;z-index:2;border:0;text-align:left;border-radius:7px;padding:4px 7px;overflow:hidden;cursor:pointer;
   background:color-mix(in srgb, var(--c) 15%, var(--surface));color:var(--ink);display:flex;flex-direction:column;gap:1px;
   box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent)}
+.ev.ghost{pointer-events:none;z-index:4;background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent);animation:ghostin .18s ease-out}
+@keyframes ghostin{from{transform:scale(.96);opacity:.4}}
 .ev:hover{background:color-mix(in srgb, var(--c) 24%, var(--surface))}
 .ev .t{font-weight:600;font-size:.8rem;line-height:1.2;overflow-wrap:anywhere}
 .ev .m{font-size:.72rem;color:var(--ink-2);font-variant-numeric:tabular-nums;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -732,11 +734,50 @@ function renderGrid(days){
     b.onclick = ev => { ev.stopPropagation(); if (Date.now() - lastDragEnd < 400) return; const e = Store.items.get(b.dataset.ev); if (e) openEvent(e); };
     attachGridDrag(b, h0, h1, H);
   });
-  main.querySelectorAll(".tg-col").forEach(col => col.onclick = ev => {
-    if (ev.target !== col) return;
-    const y = ev.offsetY; let m = h0*60 + Math.floor(y / H * 2) * 30;
-    m = Math.min(m, 23*60);
-    openEvent(null, { date: col.dataset.date, start: hhmm(m), end: hhmm(Math.min(m+60, 23*60+59)) });
+  main.querySelectorAll(".tg-col").forEach(col => {
+    // Ratón: un clic en una hora libre crea un evento.
+    col.onclick = ev => {
+      if (ev.target !== col) return;
+      if (Date.now() - lastTouchAt < 1000) return; // en pantallas táctiles se crea con pulsación larga
+      const y = ev.offsetY; let m = h0*60 + Math.floor(y / H * 2) * 30;
+      m = Math.min(m, 23*60);
+      openEvent(null, { date: col.dataset.date, start: hhmm(m), end: hhmm(Math.min(m+60, 23*60+59)) });
+    };
+    // Dedo: mantener pulsado medio segundo en una hora libre, como en el calendario del iPhone.
+    col.addEventListener("contextmenu", e => e.preventDefault());
+    col.addEventListener("pointerdown", pd => {
+      if (pd.pointerType === "mouse") return;
+      lastTouchAt = Date.now();
+      if (pd.target !== col) return;
+      const y0 = pd.clientY - col.getBoundingClientRect().top;
+      const sx = pd.clientX, sy = pd.clientY;
+      const stop = () => {
+        clearTimeout(timer);
+        document.removeEventListener("pointermove", mv);
+        document.removeEventListener("pointerup", stop);
+        document.removeEventListener("pointercancel", stop);
+      };
+      const mv = e => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) stop(); };
+      const timer = setTimeout(() => {
+        stop();
+        lastTouchAt = Date.now();
+        let m = h0*60 + Math.floor(y0 / H * 4) * 15;
+        m = Math.max(h0*60, Math.min(m, 23*60));
+        const end = Math.min(m + 60, 23*60 + 59);
+        const g = document.createElement("div");
+        g.className = "ev ghost";
+        g.style.top = ((m - h0*60) / 60 * H) + "px";
+        g.style.height = ((end - m) / 60 * H - 2) + "px";
+        g.style.left = "2px"; g.style.width = "calc(100% - 4px)";
+        g.innerHTML = `<span class="t">Nuevo evento</span><span class="m">${hhmm(m)}–${hhmm(end)}</span>`;
+        col.appendChild(g);
+        if (navigator.vibrate) { try { navigator.vibrate(15); } catch(e){} }
+        setTimeout(() => openEvent(null, { date: col.dataset.date, start: hhmm(m), end: hhmm(end) }), 180);
+      }, 500);
+      document.addEventListener("pointermove", mv);
+      document.addEventListener("pointerup", stop);
+      document.addEventListener("pointercancel", stop);
+    });
   });
   // scroll to morning on first paint
 }
@@ -766,7 +807,7 @@ function renderMonth(){
 }
 
 /* ---------- drag & drop ---------- */
-let drag = null, pendingRender = false, lastDragEnd = 0;
+let drag = null, pendingRender = false, lastDragEnd = 0, lastTouchAt = 0;
 // Shared pointer gesture: mouse/pen start after 5px of movement; touch needs a 350 ms press so normal scrolling still works.
 function gesture(el, pd, handlers){
   const isTouch = pd.pointerType === "touch";
@@ -1164,7 +1205,7 @@ async function importLegacy(){
 }
 
 /* ---------- modals ---------- */
-function closeModal(){ $("#modalRoot").innerHTML = ""; }
+function closeModal(){ $("#modalRoot").innerHTML = ""; document.querySelectorAll(".ev.ghost").forEach(g => g.remove()); }
 function modal(html){
   const root = $("#modalRoot");
   root.innerHTML = `<div class="ov" id="ov"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`;
