@@ -445,7 +445,7 @@ const misAlumnos = () => {
 function formFicha(alumno, preset = {}){
   const nuevo = !alumno;
   const v = Object.assign({ nombre: "", apellidos: "", academiaId: misAcademias()[0].id, nivelInicial: "", estado: "activo", modoPago: "pack",
-    fechaIncorporacion: dayKey(new Date()), nacionalidad: "", lenguaMaterna: "", clasesPreviasTarifa: null }, alumno || {}, nuevo ? preset : {});
+    nacionalidad: "", lenguaMaterna: "", clasesPreviasTarifa: null }, alumno || {}, nuevo ? preset : {});
   if (nuevo && preset.academiaId === "spanish-with-irene") v.modoPago = "pack";
   const prev = v.clasesPreviasTarifa || {};
   const m = modal(`
@@ -458,7 +458,6 @@ function formFicha(alumno, preset = {}){
       <label class="field">Nivel inicial<select id="f_nivel"><option value="">Sin nivel</option>${NIVELES.map(n => `<option${n === v.nivelInicial ? " selected" : ""}>${n}</option>`).join("")}</select></label>
       <label class="field">Forma de pago<select id="f_pago"><option value="pack"${v.modoPago === "pack" ? " selected" : ""}>Con pack</option><option value="por_clase"${v.modoPago === "por_clase" ? " selected" : ""}>Clase a clase</option></select></label>
       <label class="field">Estado<select id="f_estado">${Object.entries(ESTADOS_ALUMNO).filter(([k]) => ["activo", "pausa", "finalizado", "temporal"].includes(k)).map(([k, l]) => `<option value="${k}"${k === v.estado ? " selected" : ""}>${l}</option>`).join("")}</select></label>
-      <label class="field">Incorporación<input id="f_desde" type="date" value="${esc(v.fechaIncorporacion)}"></label>
       <label class="field">Nacionalidad<input id="f_nac" value="${esc(v.nacionalidad)}" maxlength="40"></label>
       <label class="field">Lengua materna<input id="f_lengua" value="${esc(v.lenguaMaterna)}" maxlength="40"></label>
       <label class="field full" id="f_prev_box">Clases anteriormente dadas <span class="muted">Las que hizo contigo antes de apuntarlas en la agenda. Sirve para saber si cobras 17 € o 19 €. Si es nuevo, déjalo vacío.</span>
@@ -475,11 +474,10 @@ function formFicha(alumno, preset = {}){
     const d = {
       nombre: m.querySelector("#f_nombre").value.trim(), apellidos: m.querySelector("#f_apellidos").value.trim(),
       academiaId: acSel.value, nivelInicial: m.querySelector("#f_nivel").value, modoPago: m.querySelector("#f_pago").value,
-      estado: m.querySelector("#f_estado").value, fechaIncorporacion: m.querySelector("#f_desde").value,
+      estado: m.querySelector("#f_estado").value,
       nacionalidad: m.querySelector("#f_nac").value.trim(), lenguaMaterna: m.querySelector("#f_lengua").value.trim()
     };
     if (!d.nombre) return fail("Escribe el nombre del alumno.");
-    if (!d.fechaIncorporacion) return fail("Indica la fecha de incorporación.");
     const pn = m.querySelector("#f_prev_n").value.trim();
     if (d.academiaId === "spanish-with-irene" && pn) {
       const n = Number(pn);
@@ -491,7 +489,7 @@ function formFicha(alumno, preset = {}){
       const id = D.nuevoId("alumnos", "al");
       const cambios = [...baseInicial(), { coleccion: "alumnos", id, nuevo: true, datos: { ...d, creadoEn: Date.now() } },
         { coleccion: "asignaciones", id: D.nuevoId("asignaciones", "as"), nuevo: true, datos: { destino: { tipo: "alumno", id }, profesorId: YO,
-          modalidad: preset.modalidad || "individual", estado: "confirmada", desde: d.fechaIncorporacion, hasta: null } }];
+          modalidad: preset.modalidad || "individual", estado: "confirmada", desde: preset.fechaIncorporacion || dayKey(new Date()), hasta: null } }];
       if (preset.aliasTexto) cambios.push({ coleccion: "alias", id: aliasId(d.academiaId, preset.aliasTexto), nuevo: true,
         datos: { academiaId: d.academiaId, texto: preset.aliasTexto, tipo: "alumno", alumnoId: id } });
       guardar(cambios, "Nueva ficha", `Ficha de ${d.nombre} creada.`);
@@ -558,7 +556,7 @@ function formSeparar(x){
       const id = D.nuevoId("alumnos", "al"), desde = evs[0] ? evs[0].date : dayKey(new Date());
       ids.push(id); nuevos.push(nombre);
       cambios.push({ coleccion: "alumnos", id, nuevo: true, datos: { nombre, apellidos: "", academiaId: x.academiaId, nivelInicial: m.querySelector("#s_nivel").value,
-        modoPago: m.querySelector("#s_pago").value, estado: "activo", fechaIncorporacion: desde, nacionalidad: "", lenguaMaterna: "", clasesPreviasTarifa: null, creadoEn: Date.now() } });
+        modoPago: m.querySelector("#s_pago").value, estado: "activo", nacionalidad: "", lenguaMaterna: "", clasesPreviasTarifa: null, creadoEn: Date.now() } });
       cambios.push({ coleccion: "asignaciones", id: D.nuevoId("asignaciones", "as"), nuevo: true, datos: { destino: { tipo: "alumno", id }, profesorId: YO,
         modalidad: "pareja", estado: "confirmada", desde, hasta: null } });
     }
@@ -589,7 +587,7 @@ function pintarFicha(){
     <dl class="facts">
       <div><dt>Academia</dt><dd>${esc(ac.nombre)}</dd></div><div><dt>Estado</dt><dd>${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</dd></div>
       <div><dt>Nivel inicial</dt><dd>${esc(a.nivelInicial || "—")}</dd></div><div><dt>Forma de pago</dt><dd>${a.modoPago === "por_clase" ? "Clase a clase" : "Con pack"}</dd></div>
-      <div><dt>Profesora</dt><dd>Sara</dd></div><div><dt>Incorporación</dt><dd>${a.fechaIncorporacion ? fechaCorta(a.fechaIncorporacion) + " " + a.fechaIncorporacion.slice(0, 4) : "—"}</dd></div>
+      <div><dt>Profesora</dt><dd>Sara</dd></div><div><dt>Primera clase en la agenda</dt><dd>${st && st.consumos[0] ? fechaCorta(st.consumos[0].fecha) + " " + st.consumos[0].fecha.slice(0, 4) : "—"}</dd></div>
       <div><dt>Nacionalidad</dt><dd>${esc(a.nacionalidad || "—")}</dd></div><div><dt>Lengua materna</dt><dd>${esc(a.lenguaMaterna || "—")}</dd></div>
       ${a.academiaId === "spanish-with-irene" ? `<div><dt>Clases anteriormente dadas</dt><dd>${a.clasesPreviasTarifa ? a.clasesPreviasTarifa.clases : 0}</dd></div>
       <div><dt>Clases en total contigo</dt><dd>${st ? st.totalTarifa : 0} ${st && st.totalTarifa >= 12 ? "· ya cobras 19/23 €" : "· 17/21 € hasta la 12"}</dd></div>` : ""}
