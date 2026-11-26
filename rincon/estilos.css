@@ -250,3 +250,21 @@ td small{color:var(--muted);display:block;font-size:.76rem}
 tbody tr.static{cursor:default}
 tbody tr.static:hover{background:none}
 td .n small,td.n small{display:block}
+
+/* ---------- formularios y ficha ---------- */
+.modal{position:fixed;z-index:22;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100% - 32px));max-height:calc(100% - 48px);overflow-y:auto;
+  background:var(--surface);border-radius:22px;box-shadow:var(--shadow);padding:24px;display:flex;flex-direction:column;gap:12px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.fgrid .full{grid-column:1 / -1}
+.field{display:flex;flex-direction:column;gap:5px;font-size:.8rem;color:var(--muted);min-width:0}
+.field input,.field select{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 11px;font-size:.92rem;color:var(--ink);width:100%}
+fieldset.field{border:1px solid var(--line-soft);border-radius:14px;padding:10px 14px 14px;margin:0}
+fieldset.field legend{padding:0 6px;font-size:.8rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.err{color:var(--urgent);font-size:.88rem;margin:0}
+.headside{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.banner.ok-b{background:var(--oliva-soft)}
+.dh-actions{margin-left:auto;display:flex;gap:6px;align-items:center}
+.dh-actions .x{margin-left:0}
+@media (max-width:520px){ .fgrid,.row2{grid-template-columns:1fr} .modal{padding:18px} }

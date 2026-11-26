@@ -123,6 +123,19 @@ test("pareja escrita sin «workshop» mediante un alias de grupo", () => {
   assert.ok(r.consumos.every(c => c.modalidad === "pareja"));
 });
 
+test("«Alex- Joe» sin «workshop»: fichas individuales, una clase de cada pack y factura de pareja", () => {
+  const d = datos({ alumnos: [al("alex", "Alex"), al("joe", "Joe")],
+    alias: { aj: [IRENE, "Alex- Joe", { tipo: "varios", alumnoIds: ["alex", "joe"] }], a: [IRENE, "Alex", { tipo: "alumno", alumnoId: "alex" }] },
+    packs: [pack("pa", "alex", 24, "2026-11-01"), pack("pj", "joe", 24, "2026-11-01")],
+    items: [ev("2026-11-02", "Alex- Joe"), ev("2026-11-03", "Alex")] });
+  const r = calcular(d, AHORA);
+  assert.equal(r.porAlumno.get("alex").packs[0].realizadas, 2, "Alex: la de pareja y la individual");
+  assert.equal(r.porAlumno.get("joe").packs[0].realizadas, 1);
+  assert.equal(r.sinVincular.length, 0);
+  const f = factura(r, d, IRENE, "2026-11");
+  assert.deepEqual(f.lineas.map(l => [l.concepto, l.importe]), [["Clase en pareja", 21], ["Clase individual", 17]]);
+});
+
 /* ---------- packs ---------- */
 
 test("no descuenta clases anteriores a la compra del pack", () => {

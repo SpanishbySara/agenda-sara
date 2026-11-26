@@ -77,7 +77,12 @@ export function participantes(ev, ctx){
     for (const n of p.names) {
       const al = ctx.alias.get(aliasId(academiaId, n));
       if (!al) { sinVincular.push(n); continue; }
-      if (al.tipo === "grupo") {
+      if (al.tipo === "varios") {
+        // Un título con varias personas («Alex- Joe»): cada una tiene su propia ficha.
+        const ids = (al.alumnoIds || []).filter(Boolean);
+        if (!ids.length) avisos.push(`«${n}» no apunta a ninguna ficha`);
+        alumnos.push(...ids);
+      } else if (al.tipo === "grupo") {
         const g = ctx.grupos.get(al.grupoId);
         const ms = g ? miembrosEn(g, ev.date) : [];
         if (!ms.length) avisos.push(`El grupo «${n}» no tiene miembros en esa fecha`);

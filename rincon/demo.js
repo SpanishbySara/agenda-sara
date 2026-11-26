@@ -17,7 +17,8 @@ export function agendaDemo(hoy = new Date()){
     [1, "11:30", "12:30", "Workshop Nora y Ben", "ty_irene"], [1, "18:15", "19:00", "Ahmed", "ty_lsi"],
     [2, "10:00", "11:00", "Yuki Tanaka", "ty_irene"], [2, "16:00", "17:00", "Jon Arrieta", "ty_lsi"],
     [3, "09:00", "10:00", "Claire Dubois", "ty_lsi"], [3, "18:00", "19:00", "Workshop Tom y Lea", "ty_irene"],
-    [4, "12:00", "13:00", "Emma Rossi", "ty_lsi"], [4, "17:00", "18:00", "Hanna", "particular"]
+    [4, "12:00", "13:00", "Emma Rossi", "ty_lsi"], [4, "17:00", "18:00", "Hanna", "particular"],
+    [2, "19:00", "20:00", "Alex- Joe", "ty_irene"], [4, "10:00", "11:00", "Alex", "ty_irene"]
   ];
   let n = 0;
   const lunes0 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - ((hoy.getDay() + 6) % 7));

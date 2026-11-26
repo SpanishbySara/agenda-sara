@@ -138,7 +138,11 @@ const nombresSesion = s => {
   return [...s.p.alumnos.map(id => esc(al.get(id)?.nombre || "?")), ...s.p.sinVincular.map(n => `<span class="sv" title="Sin vincular">${esc(n)}</span>`)].join(", ");
 };
 function aviso(){
-  if (S.sesion === "demo") return `<div class="banner demo-b"><b>Modo demostración.</b> Agenda inventada: no se conecta a Firebase ni a tu agenda real.</div>`;
+  const f = flashMsg ? `<div class="banner ok-b" role="status">${esc(flashMsg)}</div>` : "";
+  return f + avisoBase();
+}
+function avisoBase(){
+  if (S.sesion === "demo") return `<div class="banner demo-b"><b>Modo demostración.</b> Agenda inventada: no se conecta a Firebase ni a tu agenda real. Lo que guardes aquí se pierde al recargar.</div>`;
   if (S.agendaError) return `<div class="banner error-b"><b>No se pudo leer la agenda.</b> ${esc(S.agendaError)}</div>`;
   if (S.rinconDenegado) return `<div class="banner"><b>Solo lectura por ahora.</b> Mi rincón de profe ya lee tu agenda. Para guardar fichas y packs falta publicar las reglas nuevas en Firebase; te avisaré en el siguiente paso.</div>`;
   return "";
@@ -241,14 +245,34 @@ function vProfeResumen(){
   </div>`;
 }
 
+let fAl = { q: "", nivel: "", estado: "", pago: "" };
 function vProfeAlumnos(){
-  const al = (S.rincon.alumnos || []).filter(a => pasaFiltro(a.academiaId));
   const m = modelo();
+  const todos = misAlumnos().filter(a => pasaFiltro(a.academiaId));
+  const al = todos.filter(a => (!fAl.q || nombreCompleto(a).toLowerCase().includes(fAl.q.toLowerCase())) && (!fAl.nivel || a.nivelInicial === fAl.nivel)
+    && (!fAl.estado || a.estado === fAl.estado) && (!fAl.pago || a.modoPago === fAl.pago))
+    .sort((a, b) => nombreCompleto(a).localeCompare(nombreCompleto(b), "es"));
+  const modalidad = st => { const ult = st && [...st.consumos].reverse().find(c => !c.prevista); return ult ? cap(ult.modalidad) : "—"; };
+  const opt = (k, list) => list.map(([v, l]) => `<option value="${v}"${fAl[k] === v ? " selected" : ""}>${l}</option>`).join("");
+  const boton = puedeEscribir() ? `<button class="btn primary" type="button" id="nuevoAl">+ Nuevo alumno</button>` : "";
   return `${aviso()}
-  ${head("Mi espacio de profe", "Mis alumnos", "Pulsa un alumno para abrir su ficha. Las clases realizadas salen de tu agenda.", acSeg(), "var(--burdeos)")}
-  ${al.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Academia</th><th>Nivel</th><th>Estado</th></tr></thead>
-    <tbody>${al.map(a => `<tr><td><span class="name">${esc(a.nombre)}</span></td><td>${chip(a.academiaId)}</td><td>${esc(a.nivelInicial || "—")}</td><td>${esc(a.estado || "")}</td></tr>`).join("")}</tbody></table></div>`
-    : `<div class="emptybox"><h2>Todavía no hay fichas</h2><p>Tu agenda tiene ${plural(m.sinVincular.length, "nombre", "nombres")} de alumnos de LSI e Irene. En el siguiente paso podrás crear sus fichas desde <b>Nombres sin vincular</b>, sin escribirlos uno a uno.</p><button class="go" type="button" data-go="profe-vincular">Ver nombres de la agenda</button></div>`}`;
+  ${head("Mi espacio de profe", "Mis alumnos", "Pulsa un alumno para abrir su ficha. Las clases salen de tu agenda.", `<div class="headside">${acSeg()}${boton}</div>`, "var(--burdeos)")}
+  ${todos.length ? `
+  <div class="tools">
+    <input id="fq" type="search" placeholder="Buscar por nombre" value="${esc(fAl.q)}" aria-label="Buscar alumno por nombre">
+    <select id="fnivel" aria-label="Nivel">${opt("nivel", [["", "Todos los niveles"], ...NIVELES.map(n => [n, n])])}</select>
+    <select id="festado" aria-label="Estado">${opt("estado", [["", "Todos los estados"], ["activo", "Activo"], ["pausa", "En pausa"], ["finalizado", "Finalizado"], ["temporal", "Temporal"]])}</select>
+    <select id="fpago" aria-label="Forma de pago">${opt("pago", [["", "Pack y clase a clase"], ["pack", "Con pack"], ["por_clase", "Clase a clase"]])}</select>
+  </div>
+  <div class="twrap"><table><thead><tr><th>Alumno</th><th>Academia</th><th>Nivel</th><th>Modalidad</th><th>Profesora</th><th>Pack actual</th><th class="n">Realizadas</th><th class="n">Restantes</th><th>Estado</th></tr></thead>
+    <tbody>${al.map(a => { const st = m.porAlumno.get(a.id), pk = st && st.actual, dadas = st ? st.consumos.filter(c => c.cuenta).length : 0;
+      return `<tr data-ficha="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span><small>${esc(aliasDe(a.id).map(z => "«" + z.texto + "»").join(", ") || "Sin nombre de agenda vinculado")}</small></td>
+      <td>${chip(a.academiaId)}</td><td>${esc(a.nivelInicial || "—")}</td><td>${modalidad(st)}</td><td>Sara</td>
+      <td>${a.modoPago === "por_clase" ? '<span class="muted">Clase a clase</span>' : pk ? esc(pk.pack.nombre || "Pack") : '<span class="muted">Sin pack</span>'}</td>
+      <td class="n">${pk ? pk.realizadas : dadas}${pk ? "" : "<small>clases dadas</small>"}</td><td class="n">${pk ? pk.restantes : "—"}</td>
+      <td><span class="state st-${a.estado === "activo" ? "activo" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado)}</span></td></tr>`; }).join("")}</tbody></table>
+    ${al.length ? "" : `<p class="empty">Ningún alumno coincide con estos filtros.</p>`}</div>`
+    : `<div class="emptybox"><h2>Todavía no hay fichas</h2><p>Tu agenda tiene ${plural(m.sinVincular.length, "nombre", "nombres")} de alumnos de LSI e Irene. Crea sus fichas desde <b>Nombres sin vincular</b>: el nombre, la academia y la fecha de la primera clase se rellenan solos.</p><button class="go" type="button" data-go="profe-vincular">Ver nombres de la agenda</button></div>`}`;
 }
 
 function vVincular(){
@@ -263,8 +287,10 @@ function vVincular(){
   ${lista.length ? `<div class="twrap"><table><thead><tr><th>Nombre en la agenda</th><th>Academia</th><th class="n">Clases</th><th>Primera</th><th>Última</th><th>Próxima</th><th></th></tr></thead>
     <tbody>${lista.map(x => `<tr class="static"><td><span class="name">${esc(x.texto)}</span></td><td>${chip(x.academiaId)}</td><td class="n">${x.dadas}${x.total > x.dadas ? `<small>+${x.total - x.dadas} previstas</small>` : ""}</td>
       <td>${x.primera ? fechaCorta(x.primera) : "—"}</td><td>${x.ultima ? fechaCorta(x.ultima) : "—"}</td><td>${x.proxima ? fechaCorta(x.proxima) : "—"}</td>
-      <td style="white-space:nowrap"><button class="btn sm" type="button" disabled title="Disponible en el siguiente paso">Crear ficha</button> <button class="btn sm ghost" type="button" disabled title="Disponible en el siguiente paso">Vincular</button></td></tr>`).join("")}</tbody></table></div>
-    <p class="note">«Crear ficha» y «Vincular a una ficha existente» se activan en el siguiente paso, cuando estén publicadas las reglas nuevas.</p>`
+      <td style="white-space:nowrap">${puedeEscribir() ? (sugerirNombres(x.texto).length >= 2
+        ? `<button class="btn sm" type="button" data-separar="${esc(x.aliasId)}">Separar en ${sugerirNombres(x.texto).length} alumnos</button> <button class="btn sm ghost" type="button" data-crear="${esc(x.aliasId)}">Es una sola persona</button>`
+        : `<button class="btn sm" type="button" data-crear="${esc(x.aliasId)}">Crear ficha</button> <button class="btn sm ghost" type="button" data-vincular="${esc(x.aliasId)}">Vincular</button>`) : `<span class="muted" style="font-size:.8rem">Falta publicar las reglas</span>`}</td></tr>`).join("")}</tbody></table></div>
+    <p class="note"><b>Crear ficha</b> si es un alumno nuevo. <b>Vincular</b> si es otra forma de escribir a alguien que ya tiene ficha, por ejemplo «Ana G.» y «Ana García». <b>Separar</b> cuando el título lleva a dos personas, como «Alex- Joe»: cada una tiene su ficha individual.</p>`
     : `<p class="empty">Todos los nombres de la agenda están vinculados a una ficha.</p>`}`;
 }
 
@@ -309,7 +335,9 @@ function vTipos(){
   <div class="twrap"><table><thead><tr><th>Tipo en tu agenda</th><th class="n">Clases</th><th>Se usa en Mi rincón de profe como</th></tr></thead>
     <tbody>${tipos.map(t => { const a = ac.find(x => x.tiposAgenda.includes(t.id));
       return `<tr class="static"><td><span class="swatch" style="background:${/^#[0-9a-f]{6}$/i.test(t.color || "") ? t.color : "#6b7392"}"></span>${esc(t.label)}</td><td class="n">${usoTipo(t.id)}</td><td>${a ? chip(a.id) + " " + esc(a.nombre) : '<span class="muted">Se ignora</span>'}</td></tr>`; }).join("")}</tbody></table></div>
-  ${ac.some(a => a.detectado) ? `<p class="note">${ac.every(a => a.tiposAgenda.length) ? "Detectado automáticamente por el nombre del tipo. En el siguiente paso podrás confirmarlo y quedará guardado por su identificador, así que renombrar el tipo en la agenda no romperá nada." : "No encuentro alguno de los tipos. Revisa que en tu agenda se llamen «Clases (LSI)» y «Clases (Irene)»."}</p>` : ""}
+  ${ac.some(a => a.detectado) ? `<p class="note">${ac.every(a => a.tiposAgenda.length) ? "Detectado automáticamente por el nombre del tipo. Al confirmarlo queda guardado por su identificador, así que renombrar el tipo en la agenda no romperá nada. También se guardan las tarifas y los avisos de 3 y 1 clases." : "No encuentro alguno de los tipos. Revisa que en tu agenda se llamen «Clases (LSI)» y «Clases (Irene)»."}</p>
+    ${puedeEscribir() && ac.every(a => a.tiposAgenda.length) ? `<button class="btn primary" type="button" id="confirmarTipos" style="align-self:flex-start">Confirmar y guardar la configuración</button>` : ""}`
+    : `<p class="note">Configuración guardada. Renombrar estos tipos en la agenda no rompe nada; borrarlos sí, porque la agenda pasaría sus clases a otro tipo.</p>`}
   <p class="muted" style="font-size:.85rem">${plural(m.eventos.length, "clase", "clases")} de LSI e Irene leídas de la agenda en total.</p>`;
 }
 
@@ -353,6 +381,241 @@ function vPend(id){
   return `${aviso()}${head(eyebrow, title, esc(intro), `<span class="phase">${eyebrow === "Jefa de estudios" ? "Fase 5" : "Próximos pasos de la fase 4"}</span>`, col)}`;
 }
 
+/* ================= escritura: fichas, alias y configuración ================= */
+const NIVELES = ["A1", "A2", "B1"];
+const ESTADOS_ALUMNO = { activo: "Activo", pausa: "En pausa", finalizado: "Finalizado", propuesta: "Propuesta", temporal: "Temporal", pendiente: "Pendiente de asignación" };
+const YO = "pr_sara";
+const puedeEscribir = () => S.sesion === "demo" || (S.sesion === "dentro" && !S.rinconDenegado && "alumnos" in S.rincon);
+const configurado = () => (S.rincon.academias || []).length > 0;
+
+/** Lo que se guarda la primera vez: academias, tarifas, ajustes generales y tu ficha de profesora. */
+function baseInicial(){
+  if (configurado()) return [];
+  const ac = academias();
+  const out = ac.map(a => ({ coleccion: "academias", id: a.id, nuevo: true, datos: {
+    nombre: a.nombre, nombreCorto: a.corto, tiposAgenda: a.tiposAgenda, enMiEspacio: a.enMiEspacio, coordinada: a.coordinada, packsHabituales: a.packsHabituales, activa: true } }));
+  const IRE = "spanish-with-irene", LSI = "lsi-karmele", desde = "2026-01-01";
+  out.push(
+    { coleccion: "tarifas", id: "irene-2026", nuevo: true, datos: { academiaId: IRE, nombre: "Clases Spanish with Irene", concepto: "honorarios_profesora", tipo: "por_clase_escalonada",
+      contador: "acumulado_alumno", reglaPareja: "si_alguno_supera_tramo", moneda: "EUR", vigenteDesde: desde,
+      tramos: [{ desdeClase: 1, hastaClase: 12, individual: 17, pareja: 21 }, { desdeClase: 13, hastaClase: null, individual: 19, pareja: 23 }] } },
+    { coleccion: "tarifas", id: "lsi-adultos-2026", nuevo: true, datos: { academiaId: LSI, nombre: "Pack adultos", categoria: "adultos", tipo: "pack", clases: 10, precio: 180, moneda: "EUR", vigenteDesde: desde } },
+    { coleccion: "tarifas", id: "lsi-apoyo-2026", nuevo: true, datos: { academiaId: LSI, nombre: "Pack apoyo", categoria: "apoyo", tipo: "pack", clases: 10, precio: 190, moneda: "EUR", vigenteDesde: desde } },
+    { coleccion: "tarifas", id: "lsi-suelta-2026", nuevo: true, datos: { academiaId: LSI, nombre: "Clase suelta", tipo: "por_clase_duracion", precios: [{ minutos: 45, precio: 15 }, { minutos: 60, precio: 19 }], moneda: "EUR", vigenteDesde: desde } },
+    { coleccion: "config", id: "general", nuevo: true, datos: { umbrales: { renovacion: 3, urgente: 1 }, niveles: NIVELES, nivelesDestrezas: NIVELES,
+      destrezas: ["CL", "CA", "EE", "EO", "IO"], modalidades: ["individual", "pareja", "grupo"] } }
+  );
+  if (!(S.rincon.profesores || []).some(p => p.id === YO))
+    out.push({ coleccion: "profesores", id: YO, nuevo: true, datos: { nombre: "Sara", esYo: true, academias: [IRE, LSI], niveles: NIVELES, modalidades: ["individual", "pareja", "grupo"], activo: true } });
+  return out;
+}
+
+async function guardar(cambios, motivo, ok){
+  try { await D.guardar(cambios, motivo); cerrarModal(); if (ok) flash(ok); }
+  catch (e) {
+    const err = document.querySelector("#f_err");
+    const msg = D.esPermisoDenegado && D.esPermisoDenegado(e) ? "No hay permiso para guardar. ¿Están publicadas las reglas nuevas en Firebase?" : "No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.";
+    if (err) { err.textContent = msg; err.hidden = false; } else flash(msg);
+  }
+}
+
+let flashMsg = "";
+function flash(msg){ flashMsg = msg; render(); setTimeout(() => { if (flashMsg === msg) { flashMsg = ""; render(); } }, 4000); }
+
+function modal(html){
+  $("#modalRoot").innerHTML = `<div class="scrim" id="mscrim"></div><div class="modal" role="dialog" aria-modal="true">${html}</div>`;
+  $("#mscrim").onclick = cerrarModal;
+  const m = $("#modalRoot .modal");
+  m.querySelectorAll("[data-cerrar]").forEach(b => b.onclick = cerrarModal);
+  const f = m.querySelector("input, select"); if (f) setTimeout(() => f.focus(), 0);
+  return m;
+}
+function cerrarModal(){ $("#modalRoot").innerHTML = ""; }
+
+const misAcademias = () => academias().filter(a => a.enMiEspacio);
+const aliasDe = alumnoId => (S.rincon.alias || []).filter(a => a.alumnoId === alumnoId || (a.alumnoIds || []).includes(alumnoId));
+const nombreCompleto = a => [a.nombre, a.apellidos].filter(Boolean).join(" ");
+const misAlumnos = () => {
+  const mios = new Set((S.rincon.asignaciones || []).filter(x => x.profesorId === YO && x.destino && x.destino.tipo === "alumno").map(x => x.destino.id));
+  const enMi = new Set(misAcademias().map(a => a.id));
+  return (S.rincon.alumnos || []).filter(a => enMi.has(a.academiaId) && mios.has(a.id));
+};
+
+/** Formulario de ficha. preset: { nombre, academiaId, aliasTexto, modalidad, desde } para crearla desde un nombre de la agenda. */
+function formFicha(alumno, preset = {}){
+  const nuevo = !alumno;
+  const v = Object.assign({ nombre: "", apellidos: "", academiaId: misAcademias()[0].id, nivelInicial: "", estado: "activo", modoPago: "pack",
+    fechaIncorporacion: dayKey(new Date()), nacionalidad: "", lenguaMaterna: "", clasesPreviasTarifa: null }, alumno || {}, nuevo ? preset : {});
+  if (nuevo && preset.academiaId === "spanish-with-irene") v.modoPago = "pack";
+  const prev = v.clasesPreviasTarifa || {};
+  const m = modal(`
+    <h2>${nuevo ? "Nueva ficha" : "Editar ficha"}</h2>
+    ${preset.aliasTexto ? `<p class="muted">Se vinculará con «<b>${esc(preset.aliasTexto)}</b>» de la agenda: sus clases empezarán a contar en cuanto guardes.</p>` : ""}
+    <form id="ff" class="fgrid" autocomplete="off" novalidate>
+      <label class="field">Nombre<input id="f_nombre" value="${esc(v.nombre)}" maxlength="60" required></label>
+      <label class="field">Apellidos<input id="f_apellidos" value="${esc(v.apellidos)}" maxlength="80"></label>
+      <label class="field">Academia<select id="f_ac"${preset.academiaId || !nuevo ? " disabled" : ""}>${misAcademias().map(a => `<option value="${a.id}"${a.id === v.academiaId ? " selected" : ""}>${esc(a.nombre)}</option>`).join("")}</select></label>
+      <label class="field">Nivel inicial<select id="f_nivel"><option value="">Sin nivel</option>${NIVELES.map(n => `<option${n === v.nivelInicial ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label class="field">Forma de pago<select id="f_pago"><option value="pack"${v.modoPago === "pack" ? " selected" : ""}>Con pack</option><option value="por_clase"${v.modoPago === "por_clase" ? " selected" : ""}>Clase a clase</option></select></label>
+      <label class="field">Estado<select id="f_estado">${Object.entries(ESTADOS_ALUMNO).filter(([k]) => ["activo", "pausa", "finalizado", "temporal"].includes(k)).map(([k, l]) => `<option value="${k}"${k === v.estado ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="field">Incorporación<input id="f_desde" type="date" value="${esc(v.fechaIncorporacion)}"></label>
+      <label class="field">Nacionalidad<input id="f_nac" value="${esc(v.nacionalidad)}" maxlength="40"></label>
+      <label class="field">Lengua materna<input id="f_lengua" value="${esc(v.lenguaMaterna)}" maxlength="40"></label>
+      <fieldset class="field full" id="f_prev_box">
+        <legend>Clases contigo antes de apuntarlas en la agenda <span class="muted">(solo Irene, para la tarifa 17/19 €)</span></legend>
+        <div class="row2"><label class="field">Número de clases<input id="f_prev_n" type="number" min="0" step="1" value="${prev.clases ?? ""}" placeholder="0"></label>
+        <label class="field">Contadas hasta el día<input id="f_prev_h" type="date" value="${esc(prev.hasta || "")}"></label></div>
+      </fieldset>
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+    </form>`);
+  const acSel = m.querySelector("#f_ac"), box = m.querySelector("#f_prev_box");
+  const upd = () => { box.hidden = acSel.value !== "spanish-with-irene"; };
+  acSel.onchange = upd; upd();
+  m.querySelector("#ff").onsubmit = ev => {
+    ev.preventDefault();
+    const err = m.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
+    const d = {
+      nombre: m.querySelector("#f_nombre").value.trim(), apellidos: m.querySelector("#f_apellidos").value.trim(),
+      academiaId: acSel.value, nivelInicial: m.querySelector("#f_nivel").value, modoPago: m.querySelector("#f_pago").value,
+      estado: m.querySelector("#f_estado").value, fechaIncorporacion: m.querySelector("#f_desde").value,
+      nacionalidad: m.querySelector("#f_nac").value.trim(), lenguaMaterna: m.querySelector("#f_lengua").value.trim()
+    };
+    if (!d.nombre) return fail("Escribe el nombre del alumno.");
+    if (!d.fechaIncorporacion) return fail("Indica la fecha de incorporación.");
+    const pn = m.querySelector("#f_prev_n").value.trim(), ph = m.querySelector("#f_prev_h").value;
+    if (d.academiaId === "spanish-with-irene" && (pn || ph)) {
+      const n = Number(pn);
+      if (!Number.isInteger(n) || n < 0) return fail("El número de clases previas tiene que ser un número entero.");
+      if (n > 0 && !ph) return fail("Indica hasta qué día están contadas las clases previas.");
+      d.clasesPreviasTarifa = n > 0 ? { clases: n, hasta: ph } : null;
+    } else d.clasesPreviasTarifa = null;
+    if (nuevo) {
+      const id = D.nuevoId("alumnos", "al");
+      const cambios = [...baseInicial(), { coleccion: "alumnos", id, nuevo: true, datos: { ...d, creadoEn: Date.now() } },
+        { coleccion: "asignaciones", id: D.nuevoId("asignaciones", "as"), nuevo: true, datos: { destino: { tipo: "alumno", id }, profesorId: YO,
+          modalidad: preset.modalidad || "individual", estado: "confirmada", desde: d.fechaIncorporacion, hasta: null } }];
+      if (preset.aliasTexto) cambios.push({ coleccion: "alias", id: aliasId(d.academiaId, preset.aliasTexto), nuevo: true,
+        datos: { academiaId: d.academiaId, texto: preset.aliasTexto, tipo: "alumno", alumnoId: id } });
+      guardar(cambios, "Nueva ficha", `Ficha de ${d.nombre} creada.`);
+    } else {
+      const { id, actualizadoEn, ...antes } = alumno; void actualizadoEn;
+      guardar([{ coleccion: "alumnos", id, datos: { ...antes, ...d, academiaId: alumno.academiaId } }], "Editar ficha", "Ficha guardada.");
+    }
+  };
+}
+
+/** Vincular un nombre de la agenda a una ficha existente de la misma academia. */
+function formVincular(x){
+  const fichas = (S.rincon.alumnos || []).filter(a => a.academiaId === x.academiaId).sort((a, b) => nombreCompleto(a).localeCompare(nombreCompleto(b), "es"));
+  if (!fichas.length) { flash(`Todavía no hay fichas de ${acad(x.academiaId).nombre}. Crea primero una ficha.`); return; }
+  const m = modal(`
+    <h2>Vincular «${esc(x.texto)}»</h2>
+    <p class="muted">Elige la ficha de ${esc(acad(x.academiaId).nombre)} a la que corresponde este nombre. Sus ${plural(x.eventos.length, "clase", "clases")} contarán para ese alumno.</p>
+    <form id="fv" class="fgrid" novalidate>
+      <label class="field full">Ficha<select id="v_al">${fichas.map(a => `<option value="${a.id}">${esc(nombreCompleto(a))}${aliasDe(a.id).length ? ` (en la agenda: ${esc(aliasDe(a.id).map(z => z.texto).join(", "))})` : ""}</option>`).join("")}</select></label>
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Vincular</button></div>
+    </form>`);
+  m.querySelector("#fv").onsubmit = ev => {
+    ev.preventDefault();
+    const alumnoId = m.querySelector("#v_al").value, a = fichas.find(f => f.id === alumnoId);
+    guardar([{ coleccion: "alias", id: aliasId(x.academiaId, x.texto), nuevo: true, datos: { academiaId: x.academiaId, texto: x.texto, tipo: "alumno", alumnoId } }],
+      "Vincular nombre", `«${x.texto}» vinculado a ${nombreCompleto(a)}.`);
+  };
+}
+
+/** «Alex- Joe», «Alex y Joe», «Alex, Joe»… → ["Alex", "Joe"]. Solo sugiere; la agenda no se toca. */
+function sugerirNombres(texto){
+  return String(texto).split(/\s*(?:[-–—,;\/+&·]|\s+y\s+|\s+e\s+)\s*/i).map(s => s.trim()).filter(s => s.length > 1);
+}
+
+/** Un nombre de la agenda con varias personas: una ficha individual para cada una. */
+function formSeparar(x){
+  const partes = sugerirNombres(x.texto);
+  const fichas = (S.rincon.alumnos || []).filter(a => a.academiaId === x.academiaId).sort((a, b) => nombreCompleto(a).localeCompare(nombreCompleto(b), "es"));
+  const parecida = n => fichas.find(a => a.nombre.toLowerCase() === n.toLowerCase() || aliasDe(a.id).some(z => z.texto.toLowerCase() === n.toLowerCase()));
+  const evs = x.eventos.map(id => modelo().eventos.find(e => e.id === id)).filter(Boolean).sort((a, b) => a.date < b.date ? -1 : 1);
+  const m = modal(`
+    <h2>Separar «${esc(x.texto)}»</h2>
+    <p class="muted">Cada persona tendrá su propia ficha. En cada clase «${esc(x.texto)}» se descontará una clase del pack de cada uno y contará como clase en pareja.</p>
+    <form id="fs" class="fgrid" novalidate>
+      ${partes.map((p, i) => { const sug = parecida(p); return `<fieldset class="field full persona"><legend>Persona ${i + 1}</legend>
+        <div class="row2"><label class="field">Ficha<select data-modo="${i}"><option value="nueva"${sug ? "" : " selected"}>Crear ficha nueva</option>${fichas.map(a => `<option value="${a.id}"${sug && sug.id === a.id ? " selected" : ""}>${esc(nombreCompleto(a))}</option>`).join("")}</select></label>
+        <label class="field" data-nombre-box="${i}">Nombre<input data-nombre="${i}" value="${esc(p)}" maxlength="60"></label></div></fieldset>`; }).join("")}
+      <label class="field">Nivel inicial (fichas nuevas)<select id="s_nivel"><option value="">Sin nivel</option>${NIVELES.map(n => `<option>${n}</option>`).join("")}</select></label>
+      <label class="field">Forma de pago (fichas nuevas)<select id="s_pago"><option value="pack">Con pack</option><option value="por_clase">Clase a clase</option></select></label>
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+    </form>`);
+  const sync = () => m.querySelectorAll("[data-modo]").forEach(s => { m.querySelector(`[data-nombre-box="${s.dataset.modo}"]`).hidden = s.value !== "nueva"; });
+  m.querySelectorAll("[data-modo]").forEach(s => s.onchange = sync); sync();
+  m.querySelector("#fs").onsubmit = ev => {
+    ev.preventDefault();
+    const err = m.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
+    const cambios = [...baseInicial()], ids = [], nuevos = [];
+    for (const s of m.querySelectorAll("[data-modo]")) {
+      if (s.value !== "nueva") { ids.push(s.value); continue; }
+      const nombre = m.querySelector(`[data-nombre="${s.dataset.modo}"]`).value.trim();
+      if (!nombre) return fail("Escribe el nombre de cada persona nueva.");
+      const id = D.nuevoId("alumnos", "al"), desde = evs[0] ? evs[0].date : dayKey(new Date());
+      ids.push(id); nuevos.push(nombre);
+      cambios.push({ coleccion: "alumnos", id, nuevo: true, datos: { nombre, apellidos: "", academiaId: x.academiaId, nivelInicial: m.querySelector("#s_nivel").value,
+        modoPago: m.querySelector("#s_pago").value, estado: "activo", fechaIncorporacion: desde, nacionalidad: "", lenguaMaterna: "", clasesPreviasTarifa: null, creadoEn: Date.now() } });
+      cambios.push({ coleccion: "asignaciones", id: D.nuevoId("asignaciones", "as"), nuevo: true, datos: { destino: { tipo: "alumno", id }, profesorId: YO,
+        modalidad: "pareja", estado: "confirmada", desde, hasta: null } });
+    }
+    if (new Set(ids).size !== ids.length) return fail("Has elegido la misma ficha dos veces.");
+    cambios.push({ coleccion: "alias", id: aliasId(x.academiaId, x.texto), nuevo: true, datos: { academiaId: x.academiaId, texto: x.texto, tipo: "varios", alumnoIds: ids } });
+    guardar(cambios, "Separar nombre de pareja", `«${x.texto}» separado en ${ids.length} fichas individuales${nuevos.length ? " (nuevas: " + nuevos.join(", ") + ")" : ""}.`);
+  };
+}
+
+function quitarAlias(al){
+  guardar([{ coleccion: "alias", id: al.id, datos: null }], "Desvincular nombre", `«${al.texto}» vuelve a Nombres sin vincular.`);
+}
+
+/* ================= ficha del alumno ================= */
+let fichaAbierta = null, fichaTab = "resumen";
+function abrirFicha(id){ fichaAbierta = id; fichaTab = "resumen"; pintarFicha(); }
+function cerrarFicha(){ fichaAbierta = null; $("#drawerRoot").innerHTML = ""; }
+function pintarFicha(){
+  const a = (S.rincon.alumnos || []).find(x => x.id === fichaAbierta);
+  if (!a) { cerrarFicha(); return; }
+  const st = modelo().porAlumno.get(a.id), ac = acad(a.academiaId);
+  const clases = (st ? st.consumos : []).slice().reverse();
+  const dadas = clases.filter(c => !c.prevista);
+  const tabs = [["resumen", "Resumen"], ["academica", "Información académica"], ["packs", "Packs"], ["historial", "Historial"], ["seguimiento", "Seguimiento"], ["notas", "Notas"]];
+  const fila = c => `<li><span class="num">${fechaCorta(c.fecha)}</span><span>${cap(c.modalidad)} · ${c.minutos} min</span>${c.prevista ? '<span class="state st-pausa">Prevista</span>' : c.cuenta ? '<span class="state st-activo">Impartida</span>' : '<span class="state st-propuesta">No cuenta</span>'}</li>`;
+  let body;
+  if (fichaTab === "resumen") body = `
+    <dl class="facts">
+      <div><dt>Academia</dt><dd>${esc(ac.nombre)}</dd></div><div><dt>Estado</dt><dd>${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</dd></div>
+      <div><dt>Nivel inicial</dt><dd>${esc(a.nivelInicial || "—")}</dd></div><div><dt>Forma de pago</dt><dd>${a.modoPago === "por_clase" ? "Clase a clase" : "Con pack"}</dd></div>
+      <div><dt>Profesora</dt><dd>Sara</dd></div><div><dt>Incorporación</dt><dd>${a.fechaIncorporacion ? fechaCorta(a.fechaIncorporacion) + " " + a.fechaIncorporacion.slice(0, 4) : "—"}</dd></div>
+      <div><dt>Nacionalidad</dt><dd>${esc(a.nacionalidad || "—")}</dd></div><div><dt>Lengua materna</dt><dd>${esc(a.lenguaMaterna || "—")}</dd></div>
+      ${a.academiaId === "spanish-with-irene" ? `<div><dt>Clases para la tarifa</dt><dd>${st ? st.totalTarifa : 0} ${st && st.totalTarifa > 12 ? "· ya cobras 19/23 €" : "· 17/21 € hasta la 12"}</dd></div>` : ""}
+    </dl>
+    <section class="section"><header><h3>Nombres en la agenda</h3></header>
+      ${aliasDe(a.id).length ? `<ul class="hist">${aliasDe(a.id).map(z => `<li><span>«${esc(z.texto)}»</span><span class="muted">${esc(acad(z.academiaId).corto)}</span>${puedeEscribir() ? `<button class="link" type="button" data-unalias="${esc(z.id)}">Desvincular</button>` : "<span></span>"}</li>`).join("")}</ul>` : `<p class="empty">Ningún nombre de la agenda está vinculado a esta ficha todavía.</p>`}
+    </section>
+    <section class="section"><header><h3>Últimas clases</h3><span class="muted" style="font-size:.8rem">${plural(dadas.length, "clase dada", "clases dadas")}</span></header>
+      ${clases.length ? `<ul class="hist">${clases.slice(0, 8).map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`}</section>`;
+  else if (fichaTab === "historial") body = clases.length ? `<ul class="hist">${clases.map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`;
+  else body = `<p class="phase" style="align-self:flex-start">Próximo paso</p><p class="muted">La pestaña «${esc(tabs.find(t => t[0] === fichaTab)[1])}» llega en los siguientes pasos.</p>`;
+  $("#drawerRoot").innerHTML = `<div class="scrim" id="fscrim"></div>
+    <aside class="drawer" role="dialog" aria-modal="true" aria-label="Ficha de ${esc(nombreCompleto(a))}">
+      <div class="dh"><span class="avatar ${ac.css}">${esc((a.nombre[0] || "") + ((a.apellidos || "")[0] || ""))}</span><div><span class="eyebrow">Ficha de alumno</span><h2>${esc(nombreCompleto(a))}</h2><div style="margin-top:6px">${chip(a.academiaId)}</div></div>
+        <div class="dh-actions">${puedeEscribir() ? `<button class="btn sm" type="button" id="f_edit">Editar</button>` : ""}<button class="x" type="button" id="f_close" aria-label="Cerrar ficha"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>
+      <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${fichaTab === k}">${l}</button>`).join("")}</div>
+      <div class="dbody">${body}</div>
+    </aside>`;
+  $("#fscrim").onclick = cerrarFicha; $("#f_close").onclick = cerrarFicha;
+  const ed = $("#f_edit"); if (ed) ed.onclick = () => formFicha(a);
+  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { fichaTab = b.dataset.tab; pintarFicha(); });
+  document.querySelectorAll("[data-unalias]").forEach(b => b.onclick = () => { const z = aliasDe(a.id).find(q => q.id === b.dataset.unalias); if (z) quitarAlias(z); });
+}
+
 /* ================= router y pantallas ================= */
 const VISTAS = { inicio: vInicio, calendario: vCalendario, "profe-resumen": vProfeResumen, "profe-alumnos": vProfeAlumnos, "profe-vincular": vVincular,
   "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias };
@@ -372,6 +635,22 @@ function render(){
   v.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { location.hash = b.dataset.go; });
   v.querySelectorAll("[data-ac]").forEach(b => b.onclick = () => { acFilter = b.dataset.ac; try { localStorage.setItem("rincon-ac", acFilter); } catch (e) {} render(); });
   v.querySelectorAll("[data-mes]").forEach(b => b.onclick = () => { mesHist = sumarMes(mesHist, Number(b.dataset.mes)); render(); });
+  // Nombres sin vincular
+  const sv = id => modelo().sinVincular.find(x => x.aliasId === id);
+  const primera = x => x.eventos.map(id => modelo().eventos.find(e => e.id === id)).filter(Boolean).map(e => e.date).sort()[0];
+  v.querySelectorAll("[data-crear]").forEach(b => b.onclick = () => { const x = sv(b.dataset.crear); if (x) formFicha(null, { nombre: x.texto, academiaId: x.academiaId, aliasTexto: x.texto, fechaIncorporacion: primera(x) || dayKey(new Date()) }); });
+  v.querySelectorAll("[data-vincular]").forEach(b => b.onclick = () => { const x = sv(b.dataset.vincular); if (x) formVincular(x); });
+  v.querySelectorAll("[data-separar]").forEach(b => b.onclick = () => { const x = sv(b.dataset.separar); if (x) formSeparar(x); });
+  // Mis alumnos
+  v.querySelectorAll("[data-ficha]").forEach(tr => { tr.onclick = () => abrirFicha(tr.dataset.ficha); tr.onkeydown = e => { if (e.key === "Enter") abrirFicha(tr.dataset.ficha); }; });
+  const na = v.querySelector("#nuevoAl"); if (na) na.onclick = () => formFicha(null);
+  const fq = v.querySelector("#fq");
+  if (fq) {
+    fq.oninput = () => { fAl.q = fq.value; const p = fq.selectionStart; render(); const n = $("#fq"); n.focus(); n.setSelectionRange(p, p); };
+    [["fnivel", "nivel"], ["festado", "estado"], ["fpago", "pago"]].forEach(([id, k]) => v.querySelector("#" + id).onchange = e => { fAl[k] = e.target.value; render(); });
+  }
+  const ct = v.querySelector("#confirmarTipos"); if (ct) ct.onclick = () => guardar(baseInicial(), "Configuración inicial", "Configuración guardada: academias, tarifas y avisos.");
+  if (fichaAbierta) pintarFicha();
   document.body.classList.remove("menu-open");
 }
 
@@ -402,6 +681,21 @@ async function arrancar(){
   render();
   if (DEMO) {
     const { agendaDemo } = await import("./demo.js");
+    // Guardado de prueba: solo en memoria, se pierde al recargar.
+    D = {
+      nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
+      esPermisoDenegado: () => false,
+      guardar: async cambios => {
+        for (const c of cambios) {
+          const arr = S.rincon[c.coleccion] || (S.rincon[c.coleccion] = []);
+          const i = arr.findIndex(x => x.id === c.id);
+          if (c.datos === null) { if (i >= 0) arr.splice(i, 1); }
+          else if (i >= 0) arr[i] = { ...c.datos, id: c.id }; else arr.push({ ...c.datos, id: c.id });
+        }
+        invalidar(); render();
+      }
+    };
+    for (const c of ["config", "academias", "tarifas", "profesores", "alumnos", "alias", "grupos", "asignaciones", "packs", "ajustesPack", "registrosClase"]) S.rincon[c] = [];
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {

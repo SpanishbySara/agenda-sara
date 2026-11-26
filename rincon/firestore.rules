@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    // ── AGENDA: SIN NINGÚN CAMBIO ──────────────────────────────
+    match /agendas/principal/{document=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid in ["pGr3iOuU9mPZiCN9SbhwsolwODP2"];
+    }
+
+    // ── MI RINCÓN DE PROFE ─────────────────────────────────────
+    function esSara() {
+      return request.auth != null
+          && request.auth.uid in ["pGr3iOuU9mPZiCN9SbhwsolwODP2"];
+    }
+    function fecha(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function packValido(d) {
+      return d.alumnoId is string
+          && d.clasesContratadas is int && d.clasesContratadas > 0
+          && fecha(d.fechaCompra);
+    }
+    function ajusteValido(d) {
+      return d.packId is string && d.cantidad is int
+          && d.motivo is string && d.motivo.size() > 0;
+    }
+    function datosValidos(col, id, d) {
+      return (col != "packs"          || packValido(d))
+          && (col != "ajustesPack"    || ajusteValido(d))
+          && (col != "registrosClase" ||
+              exists(/databases/$(db)/documents/agendas/principal/items/$(id)));
+    }
+
+    match /rincon/principal/{col}/{id} {
+      allow read: if esSara();
+      allow create, update: if esSara() && col != "historial"
+                            && datosValidos(col, id, request.resource.data);
+      allow delete: if esSara() && col != "historial";
+    }
+    // El historial de cambios solo admite añadir entradas
+    match /rincon/principal/historial/{id} {
+      allow create: if esSara();
+    }
+
+    // ── TODO LO DEMÁS: PROHIBIDO (igual que ahora) ─────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
