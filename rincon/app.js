@@ -269,7 +269,7 @@ function vProfeAlumnos(){
       return `<tr data-ficha="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span><small>${esc(aliasDe(a.id).map(z => "«" + z.texto + "»").join(", ") || "Sin nombre de agenda vinculado")}</small></td>
       <td>${chip(a.academiaId)}</td><td>${esc(a.nivelInicial || "—")}</td><td>${modalidad(st)}</td><td>Sara</td>
       <td>${a.modoPago === "por_clase" ? '<span class="muted">Clase a clase</span>' : pk ? esc(pk.pack.nombre || "Pack") : '<span class="muted">Sin pack</span>'}</td>
-      <td class="n">${pk ? pk.realizadas : dadas}${pk ? "" : `<small>clases dadas${prev ? ` (${prev} anteriores)` : ""}</small>`}</td><td class="n">${pk ? pk.restantes : "—"}</td>
+      <td class="n">${pk ? pk.realizadas : dadas}</td><td class="n">${pk ? pk.restantes : "—"}</td>
       <td><span class="state st-${a.estado === "activo" ? "activo" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado)}</span></td></tr>`; }).join("")}</tbody></table>
     ${al.length ? "" : `<p class="empty">Ningún alumno coincide con estos filtros.</p>`}</div>`
     : `<div class="emptybox"><h2>Todavía no hay fichas</h2><p>Tu agenda tiene ${plural(m.sinVincular.length, "nombre", "nombres")} de alumnos de LSI e Irene. Crea sus fichas desde <b>Nombres sin vincular</b>: el nombre, la academia y la fecha de la primera clase se rellenan solos.</p><button class="go" type="button" data-go="profe-vincular">Ver nombres de la agenda</button></div>`}`;
