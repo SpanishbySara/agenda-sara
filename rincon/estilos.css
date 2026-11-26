@@ -268,3 +268,25 @@ fieldset.field legend{padding:0 6px;font-size:.8rem}
 .dh-actions{margin-left:auto;display:flex;gap:6px;align-items:center}
 .dh-actions .x{margin-left:0}
 @media (max-width:520px){ .fgrid,.row2{grid-template-columns:1fr} .modal{padding:18px} }
+
+/* ---------- packs ---------- */
+.pill{font-size:.74rem;font-weight:600;padding:3px 10px;border-radius:99px;white-space:nowrap;display:inline-block}
+.pill.ok{background:var(--oliva-soft);color:var(--oliva)}
+.pill.warn{background:var(--terracota-soft);color:var(--terracota)}
+.pill.urg{background:color-mix(in srgb,var(--urgent) 14%,transparent);color:var(--urgent)}
+.pill.mute{background:var(--line-soft);color:var(--muted)}
+.ticks i.on.prev{background:color-mix(in srgb,var(--burdeos) 45%,var(--line))}
+.ticks.lsi i.on.prev{background:color-mix(in srgb,var(--oliva) 45%,var(--line))}
+.packtop{display:flex;gap:8px;justify-content:flex-end}
+.packcard{display:flex;flex-direction:column;gap:12px;padding:16px 0 18px;border-top:1px solid var(--line)}
+.packcard header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.packnums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0}
+.packnums dt{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.packnums dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.packnums dd.big{font-family:var(--f-display);font-size:1.6rem;line-height:1}
+.packnums small{font-weight:400;color:var(--muted)}
+.packacts{display:flex;flex-wrap:wrap;gap:14px}
+.link.danger-l{color:var(--urgent)}
+.btn.danger{background:var(--urgent);border-color:var(--urgent);color:var(--surface)}
+details summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
+.packrow small .chip{vertical-align:middle}

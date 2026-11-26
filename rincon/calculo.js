@@ -184,7 +184,7 @@ export function calcular(datos, ahora = new Date()){
     });
     const vivos = est.filter(e => !e.anulado);
     const restante = e => e.disponibles - e.previas - e.asignadas.length;
-    const sueltas = [], sinPack = [], cubiertas = [];
+    const sueltas = [], sinPack = [], cubiertas = [], antesDePacks = [];
     for (const c of lista) {
       if (!c.cuenta) continue;
       // Clases anteriores al corte de un pack con «clases ya consumidas»: ya están en ese número.
@@ -198,6 +198,8 @@ export function calcular(datos, ahora = new Date()){
       if (!destino) destino = vivos.find(e => e.inicio <= c.fecha && (!e.corte || c.fecha > e.corte) && restante(e) > 0) || null;
       if (destino) { destino.asignadas.push(c); c.packId = destino.pack.id; }
       else if (al.modoPago === "por_clase") { c.suelta = true; sueltas.push(c); }
+      // Clases anteriores al primer pack registrado: no se descuentan ni avisan (son de antes de usar Mi rincón de profe).
+      else if (vivos.length && c.fecha < vivos[0].inicio) { c.antesDePacks = true; antesDePacks.push(c); }
       else { c.sinPack = true; sinPack.push(c); }
     }
     if (sinPack.length) avisos.push({ tipo: "sin_pack", alumnoId: al.id, texto: `${sinPack.length} ${sinPack.length === 1 ? "clase" : "clases"} sin pack` });
@@ -229,7 +231,7 @@ export function calcular(datos, ahora = new Date()){
       c.ordinalTarifa = ++n;
     }
 
-    porAlumno.set(al.id, { alumno: al, consumos: lista, packs: est, actual, pendienteRenovar, sueltas, sinPack, cubiertas, totalTarifa: n });
+    porAlumno.set(al.id, { alumno: al, consumos: lista, packs: est, actual, pendienteRenovar, sueltas, sinPack, cubiertas, antesDePacks, totalTarifa: n });
   }
 
   return { eventos, consumos, porAlumno, sinVincular: [...sinVincular.values()], avisos, umbral };

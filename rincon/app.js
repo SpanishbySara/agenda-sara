@@ -180,7 +180,8 @@ function vInicio(){
   if (m.sinVincular.length) avisos.push({ cls: "info", t: `${plural(m.sinVincular.length, "nombre", "nombres")} de la agenda sin vincular`, s: "No descuentan de ningún pack hasta que los vincules a una ficha.", go: "profe-vincular" });
   for (const [id, st] of m.porAlumno) {
     const a = st.alumno;
-    if (st.pendienteRenovar) avisos.push({ cls: "urgent", t: a.nombre, s: "Pack terminado. ¿Renueva?" });
+    if (st.sinPack.length && a.modoPago !== "por_clase") avisos.push({ cls: "urgent", t: a.nombre, s: plural(st.sinPack.length, "clase dada sin pack", "clases dadas sin pack"), go: "profe-packs" });
+    if (st.pendienteRenovar) avisos.push({ cls: "urgent", t: a.nombre, s: "Pack terminado. ¿Renueva?", go: "profe-packs" });
     else if (st.actual && ["urgente", "renovar"].includes(st.actual.estado)) avisos.push({ cls: st.actual.estado === "urgente" ? "urgent" : "", t: a.nombre, s: `${st.actual.restantes === 1 ? "Queda 1 clase" : "Quedan " + st.actual.restantes + " clases"} del ${st.actual.pack.nombre || "pack"}` });
     void id;
   }
@@ -357,8 +358,44 @@ function vAcademias(){
   </div>`;
 }
 
+function vPacks(){
+  const m = modelo(), mios = new Set(misAlumnos().map(a => a.id));
+  const st = [...m.porAlumno.values()].filter(x => mios.has(x.alumno.id) && pasaFiltro(x.alumno.academiaId) && x.alumno.estado !== "finalizado");
+  const conPack = st.filter(x => x.alumno.modoPago !== "por_clase");
+  const atencion = conPack.filter(x => x.pendienteRenovar || (x.actual && ["renovar", "urgente"].includes(x.actual.estado)))
+    .sort((a, b) => (a.pendienteRenovar ? 0 : a.actual.restantes) - (b.pendienteRenovar ? 0 : b.actual.restantes));
+  const enCurso = conPack.filter(x => !atencion.includes(x) && x.actual && x.actual.estado === "activo").sort((a, b) => a.actual.restantes - b.actual.restantes);
+  const pendientes = conPack.flatMap(x => x.packs.filter(e => e.estado === "pendiente").map(e => ({ x, e })));
+  const sinPack = conPack.filter(x => !x.packs.some(e => !e.anulado) || x.sinPack.length);
+  const fila = (x, e) => `<button class="packrow" type="button" data-fichapk="${x.alumno.id}">
+      <span><b>${esc(nombreCompleto(x.alumno))}</b><br><small class="muted">${esc(e.pack.nombre || "Pack")} · ${chip(x.alumno.academiaId)}</small></span>
+      ${ticksPack(e, x.alumno.academiaId)}
+      <span class="when muted" style="font-size:.8rem">Compra<br>${fechaCorta(e.pack.fechaCompra)}</span>
+      <span class="rest"${e.estado === "renovar" ? ' style="color:var(--terracota)"' : ["urgente", "terminado"].includes(e.estado) ? ' style="color:var(--urgent)"' : ""}>${e.restantes}<small>${e.estado === "terminado" ? "terminado" : e.estado === "pendiente" ? "sin empezar" : e.restantes === 1 ? "clase restante" : "restantes"}</small></span></button>`;
+  const grupo = (t, html, n, vacio) => `<section class="section"><header><h2>${t}</h2><span class="muted" style="font-size:.8rem">${n}</span></header>${n ? `<div class="packrows">${html}</div>` : `<p class="empty">${vacio}</p>`}</section>`;
+  const u = (m.datos.config && m.datos.config.umbrales) || m.umbral;
+  return `${aviso()}
+  ${head("Mi espacio de profe", "Packs y renovaciones", `Cada marca es una clase. Aviso de renovación con ${u.renovacion} clases restantes y urgente con ${u.urgente}; se cambia en <a href="#conf-preferencias">Preferencias</a>.`, acSeg(), "var(--burdeos)")}
+  ${grupo("Necesitan atención", atencion.map(x => fila(x, x.pendienteRenovar ? x.packs.filter(e => !e.anulado).slice(-1)[0] : x.actual)).join(""), atencion.length, "Ningún pack está a punto de terminar.")}
+  ${grupo("En curso", enCurso.map(x => fila(x, x.actual)).join(""), enCurso.length, conPack.length ? "No hay packs en curso." : "Todavía no hay packs. Créalos desde la ficha de cada alumno, en la pestaña Packs.")}
+  ${pendientes.length ? grupo("Renovaciones pendientes de empezar", pendientes.map(({ x, e }) => fila(x, e)).join(""), pendientes.length, "") : ""}
+  ${sinPack.length ? `<section class="section"><header><h2>Sin pack</h2><span class="muted" style="font-size:.8rem">${sinPack.length}</span></header><ul class="alerts">${sinPack.map(x => `<li><span class="dot urgent"></span><div><b>${esc(nombreCompleto(x.alumno))}</b><small>${x.sinPack.length ? plural(x.sinPack.length, "clase dada sin pack", "clases dadas sin pack") : "Paga con pack pero no tiene ninguno"}</small></div><button class="link" type="button" data-fichapk="${x.alumno.id}">Crear pack</button></li>`).join("")}</ul></section>` : ""}`;
+}
+
+function vPreferencias(){
+  const cfg = (S.rincon.config || []).find(c => c.id === "general"), u = Object.assign({ renovacion: 3, urgente: 1 }, cfg && cfg.umbrales);
+  return `${aviso()}
+  ${head("Configuración", "Preferencias", "Cuándo avisar de que un pack se termina.")}
+  <form id="prefs" class="fgrid" style="max-width:520px" novalidate>
+    <label class="field">Aviso de renovación con<input id="u_ren" type="number" min="1" step="1" value="${u.renovacion}"><span class="muted">clases restantes o menos</span></label>
+    <label class="field">Aviso urgente con<input id="u_urg" type="number" min="0" step="1" value="${u.urgente}"><span class="muted">clases restantes o menos</span></label>
+    <p class="err full" id="f_err" hidden></p>
+    ${puedeEscribir() ? `<div class="full"><button class="btn primary" type="submit">Guardar</button></div>` : ""}
+  </form>
+  <p class="note">Con 0 clases restantes el pack se da por terminado y el alumno queda pendiente de renovar hasta que renueve o marques «No renueva».</p>`;
+}
+
 const PEND = {
-  "profe-packs": ["Mi espacio de profe", "Packs y renovaciones", "Crear packs, renovaciones, clases ya consumidas y avisos de 3 y 1 clases."],
   "profe-seguimiento": ["Mi espacio de profe", "Seguimiento académico", "Nivel, evaluaciones, destrezas, objetivos y próxima revisión de cada alumno."],
   "profe-actividad": ["Mi espacio de profe", "Mi actividad docente", "Clases, horas, alumnos atendidos, packs terminados y renovaciones por mes."],
   "profe-factura": ["Mi espacio de profe", "Factura del mes", "Lo que facturas a Irene y a LSI cada mes, calculado desde la agenda, con exportación a CSV."],
@@ -372,8 +409,7 @@ const PEND = {
   "coord-informes": ["Jefa de estudios", "Informes", "Informes de coordinación exportables."],
   "conf-niveles": ["Configuración", "Niveles", "A1, A2 y B1."],
   "conf-modalidades": ["Configuración", "Modalidades", "Individual, pareja (en la agenda, «Workshop») y grupo."],
-  "conf-estados": ["Configuración", "Estados", "Estados de alumnos, packs y clases."],
-  "conf-preferencias": ["Configuración", "Preferencias", "Umbrales de aviso, exportación y copia de seguridad."]
+  "conf-estados": ["Configuración", "Estados", "Estados de alumnos, packs y clases."]
 };
 function vPend(id){
   const [eyebrow, title, intro] = PEND[id];
@@ -570,9 +606,150 @@ function quitarAlias(al){
   guardar([{ coleccion: "alias", id: al.id, datos: null }], "Desvincular nombre", `«${al.texto}» vuelve a Nombres sin vincular.`);
 }
 
+/* ================= packs ================= */
+const PLANTILLAS = {
+  "spanish-with-irene": [{ id: "24", nombre: "Pack 24", clases: 24 }, { id: "36", nombre: "Pack 36", clases: 36 }],
+  "lsi-karmele": [{ id: "adultos", nombre: "Pack adultos", categoria: "adultos", clases: 10, precio: 180, tarifaId: "lsi-adultos-2026" },
+                  { id: "apoyo", nombre: "Pack apoyo", categoria: "apoyo", clases: 10, precio: 190, tarifaId: "lsi-apoyo-2026" }]
+};
+const ESTADO_PACK = { activo: "En curso", renovar: "Aviso de renovación", urgente: "Aviso urgente", terminado: "Terminado", pendiente: "Pendiente de empezar", anulado: "Anulado" };
+/** renovado = hay un pack posterior (no anulado) del mismo alumno */
+const pillPack = (e, renovado) => {
+  const fin = e.estado === "terminado";
+  const cls = fin ? (renovado || e.pack.noRenueva ? "mute" : "urg") : { activo: "ok", renovar: "warn", urgente: "urg", pendiente: "mute", anulado: "mute" }[e.estado];
+  return `<span class="pill ${cls}">${ESTADO_PACK[e.estado]}${fin ? (renovado ? " · renovado" : e.pack.noRenueva ? " · no renueva" : " · pendiente de renovar") : ""}</span>`;
+};
+function ticksPack(e, academiaId, big){
+  const total = Math.max(e.disponibles, e.realizadas);
+  let h = "";
+  for (let i = 0; i < total; i++) h += `<i class="${i < e.previas ? "on prev" : i < e.realizadas ? "on" : ""}"></i>`;
+  return `<span class="ticks ${academiaId === "lsi-karmele" ? "lsi" : ""}${["renovar", "urgente"].includes(e.estado) ? " alert" : ""}${big ? " big" : ""}" role="img" aria-label="${e.realizadas} de ${e.disponibles} clases">${h}</span>`;
+}
+const packById = id => (S.rincon.packs || []).find(p => p.id === id);
+const sinId = ({ id, actualizadoEn, ...r }) => { void id; void actualizadoEn; return r; };
+
+/** Nuevo pack, renovación o edición. */
+function formPack(alumno, pack, opts = {}){
+  const nuevo = !pack, ac = alumno.academiaId, plant = PLANTILLAS[ac] || [];
+  const base = opts.renovarDe ? packById(opts.renovarDe) : null;
+  const elegida = pack ? (plant.find(p => p.nombre === pack.nombre)?.id || "otro") : base ? (plant.find(p => p.nombre === base.nombre)?.id || "otro") : (plant[0]?.id || "otro");
+  const v = pack || { nombre: "", clasesContratadas: "", fechaCompra: dayKey(new Date()), precio: null, consumidasPrevias: null };
+  const m = modal(`
+    <h2>${nuevo ? (base ? "Renovar pack" : "Nuevo pack") : "Editar pack"} · ${esc(nombreCompleto(alumno))}</h2>
+    ${base ? `<p class="muted">El pack nuevo empezará a contar cuando se termine el «${esc(base.nombre)}».</p>` : ""}
+    <form id="fp" class="fgrid" novalidate>
+      <label class="field full">Pack<select id="p_tipo">${plant.map(p => `<option value="${p.id}"${p.id === elegida ? " selected" : ""}>${esc(p.nombre)} · ${p.clases} clases${p.precio ? " · " + p.precio + " €" : ""}</option>`).join("")}<option value="otro"${elegida === "otro" ? " selected" : ""}>Otro</option></select></label>
+      <label class="field" id="p_nombre_box">Nombre del pack<input id="p_nombre" value="${esc(v.nombre)}" maxlength="40" placeholder="Ej.: Pack 12"></label>
+      <label class="field">Clases contratadas<input id="p_clases" type="number" min="1" step="1" value="${esc(v.clasesContratadas)}"></label>
+      <label class="field">Fecha de compra<input id="p_compra" type="date" value="${esc(v.fechaCompra)}"></label>
+      <label class="field">${ac === "lsi-karmele" ? "Lo que cobras por el pack (€)" : "Precio (€, opcional)"}<input id="p_precio" type="number" min="0" step="0.01" value="${v.precio && v.precio.importe != null ? v.precio.importe : ""}"></label>
+      ${base ? "" : `<label class="field full">Clases de este pack ya gastadas antes de la agenda <span class="muted">Solo las que no están apuntadas en tu agenda. Si el pack es nuevo, déjalo vacío.</span>
+        <input id="p_prev" type="number" min="0" step="1" value="${v.consumidasPrevias ? v.consumidasPrevias.clases : ""}" style="max-width:140px"></label>`}
+      ${ac === "lsi-karmele" ? `<p class="muted full" style="font-size:.82rem">En LSI el pack se factura entero en el mes de su fecha de compra.</p>` : ""}
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+    </form>`);
+  const tipo = m.querySelector("#p_tipo");
+  const aplicar = primera => {
+    const p = plant.find(x => x.id === tipo.value);
+    m.querySelector("#p_nombre_box").hidden = !!p;
+    if (p && (!primera || nuevo)) { m.querySelector("#p_clases").value = p.clases; if (p.precio != null) m.querySelector("#p_precio").value = p.precio; }
+  };
+  tipo.onchange = () => aplicar(false); aplicar(true);
+  m.querySelector("#fp").onsubmit = ev => {
+    ev.preventDefault();
+    const err = m.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
+    const p = plant.find(x => x.id === tipo.value);
+    const nombre = p ? p.nombre : m.querySelector("#p_nombre").value.trim();
+    const clases = Number(m.querySelector("#p_clases").value), compra = m.querySelector("#p_compra").value;
+    const precioTxt = m.querySelector("#p_precio").value.trim(), precio = precioTxt === "" ? null : Number(precioTxt);
+    const prevTxt = m.querySelector("#p_prev") ? m.querySelector("#p_prev").value.trim() : "", prev = prevTxt === "" ? 0 : Number(prevTxt);
+    if (!nombre) return fail("Escribe un nombre para el pack.");
+    if (!Number.isInteger(clases) || clases < 1) return fail("Las clases contratadas tienen que ser un número entero mayor que 0.");
+    if (!compra) return fail("Indica la fecha de compra.");
+    if (precio != null && (!Number.isFinite(precio) || precio < 0)) return fail("El precio no es válido.");
+    if (ac === "lsi-karmele" && precio == null) return fail("Indica lo que cobras por el pack: hace falta para la factura de LSI.");
+    if (!Number.isInteger(prev) || prev < 0) return fail("Las clases ya gastadas tienen que ser un número entero.");
+    if (prev > clases) return fail("Las clases ya gastadas no pueden ser más que las contratadas.");
+    const datos = { ...(pack ? sinId(pack) : { alumnoId: alumno.id, noRenueva: null, estadoManual: null, creadoEn: Date.now(), renovacionDe: base ? base.id : null }),
+      nombre, categoria: p && p.categoria || null, tarifaId: p && p.tarifaId || null, clasesContratadas: clases, fechaCompra: compra,
+      precio: precio == null ? null : { importe: precio, moneda: "EUR" }, consumidasPrevias: prev > 0 ? { clases: prev } : null };
+    const resumen = pack && pack.clasesContratadas !== clases ? { clasesContratadas: [pack.clasesContratadas, clases] } : null;
+    guardar([...baseInicial(), { coleccion: "packs", id: pack ? pack.id : D.nuevoId("packs", "pk"), nuevo, datos, resumen }],
+      nuevo ? (base ? "Renovación" : "Nuevo pack") : "Editar pack", nuevo ? (base ? `Renovación de ${alumno.nombre} guardada.` : `Pack de ${alumno.nombre} creado.`) : "Pack guardado.");
+  };
+}
+
+function formAjuste(alumno, pack){
+  const m = modal(`
+    <h2>Ajuste manual · ${esc(pack.nombre)}</h2>
+    <p class="muted">Suma o resta clases disponibles a este pack, por ejemplo una clase regalada (+1) o una corrección (−1). Queda registrado con su motivo.</p>
+    <form id="fa" class="fgrid" novalidate>
+      <label class="field">Clases (+ o −)<input id="a_n" type="number" step="1" placeholder="+1 o -1"></label>
+      <label class="field">Fecha<input id="a_f" type="date" value="${dayKey(new Date())}"></label>
+      <label class="field full">Motivo<input id="a_m" maxlength="140" placeholder="Ej.: clase regalada por un problema con Zoom"></label>
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar ajuste</button></div>
+    </form>`);
+  m.querySelector("#fa").onsubmit = ev => {
+    ev.preventDefault();
+    const err = m.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
+    const n = Number(m.querySelector("#a_n").value), motivo = m.querySelector("#a_m").value.trim(), fecha = m.querySelector("#a_f").value;
+    if (!Number.isInteger(n) || n === 0) return fail("Escribe un número entero distinto de 0, por ejemplo 1 o -1.");
+    if (!motivo) return fail("El motivo es obligatorio.");
+    guardar([{ coleccion: "ajustesPack", id: D.nuevoId("ajustesPack", "aj"), nuevo: true, datos: { packId: pack.id, alumnoId: alumno.id, cantidad: n, motivo, fecha } }],
+      motivo, "Ajuste guardado.");
+  };
+}
+
+/** Confirmación dentro de la página (el navegador no muestra confirm()). */
+function confirmar(titulo, texto, boton, accion, peligro){
+  const m = modal(`<h2>${esc(titulo)}</h2><p class="muted">${texto}</p>
+    <label class="field" id="c_m_box">Motivo (opcional)<input id="c_m" maxlength="140"></label>
+    <div class="mfoot"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="button" class="btn ${peligro ? "danger" : "primary"}" id="c_ok">${esc(boton)}</button></div>`);
+  m.querySelector("#c_ok").onclick = () => accion(m.querySelector("#c_m").value.trim());
+}
+function accionPack(tipo, alumno, pack){
+  const guarda = (cambios, mot, ok) => guardar(cambios, mot, ok);
+  if (tipo === "norenueva") confirmar("No renueva", `${esc(alumno.nombre)} no renueva después del «${esc(pack.nombre)}». El aviso de renovación desaparecerá.`, "Guardar",
+    motivo => guarda([{ coleccion: "packs", id: pack.id, datos: { ...sinId(pack), noRenueva: { fecha: dayKey(new Date()), motivo } } }], motivo || "No renueva", "Anotado: no renueva."));
+  if (tipo === "sirenueva") guarda([{ coleccion: "packs", id: pack.id, datos: { ...sinId(pack), noRenueva: null } }], "Quitar «no renueva»", "Vuelve a aparecer como pendiente de renovar.");
+  if (tipo === "anular") confirmar("Anular pack", `El «${esc(pack.nombre)}» dejará de descontar clases y no se facturará. Sus clases pasarán al pack siguiente o quedarán sin pack. Se puede deshacer.`, "Anular pack",
+    motivo => guarda([{ coleccion: "packs", id: pack.id, datos: { ...sinId(pack), estadoManual: "anulado" } }], motivo || "Anular pack", "Pack anulado."), true);
+  if (tipo === "reactivar") guarda([{ coleccion: "packs", id: pack.id, datos: { ...sinId(pack), estadoManual: null } }], "Reactivar pack", "Pack reactivado.");
+}
+
+function tabPacks(a, st){
+  const packs = st ? [...st.packs].reverse() : [];
+  const ultimo = st && st.packs.filter(e => !e.anulado).slice(-1)[0];
+  const puedeRenovar = ultimo && ["renovar", "urgente", "terminado"].includes(ultimo.estado);
+  const ajustes = id => (S.rincon.ajustesPack || []).filter(x => x.packId === id).sort((x, y) => x.fecha < y.fecha ? 1 : -1);
+  const acciones = (e, renovado) => !puedeEscribir() ? "" : `<div class="packacts">
+      <button class="link" type="button" data-pk="editar" data-id="${e.pack.id}">Editar</button>
+      <button class="link" type="button" data-pk="ajuste" data-id="${e.pack.id}">Ajuste manual</button>
+      ${e.estado === "terminado" && !renovado ? (e.pack.noRenueva ? `<button class="link" type="button" data-pk="sirenueva" data-id="${e.pack.id}">Quitar «no renueva»</button>` : `<button class="link" type="button" data-pk="norenueva" data-id="${e.pack.id}">No renueva</button>`) : ""}
+      ${e.anulado ? `<button class="link" type="button" data-pk="reactivar" data-id="${e.pack.id}">Reactivar</button>` : `<button class="link danger-l" type="button" data-pk="anular" data-id="${e.pack.id}">Anular</button>`}</div>`;
+  return `
+    <div class="packtop">${puedeEscribir() ? `${puedeRenovar ? `<button class="btn primary sm" type="button" data-pk="renovar" data-id="${ultimo.pack.id}">Renovar</button>` : ""}<button class="btn sm" type="button" data-pk="nuevo">+ Nuevo pack</button>` : ""}</div>
+    ${a.modoPago === "por_clase" ? `<p class="note">Paga clase a clase: sus clases cuentan como sueltas. Si compra un pack, créalo aquí y las clases desde su fecha de compra se descontarán del pack.</p>` : ""}
+    ${st && st.sinPack.length ? `<p class="banner">${plural(st.sinPack.length, "clase dada sin pack", "clases dadas sin pack")}: ${st.sinPack.slice(-5).map(c => fechaCorta(c.fecha)).join(", ")}${st.sinPack.length > 5 ? "…" : ""}. Crea o renueva un pack con una fecha de compra anterior para que se descuenten.</p>` : ""}
+    ${st && st.antesDePacks.length ? `<p class="note">${plural(st.antesDePacks.length, "clase de la agenda es anterior", "clases de la agenda son anteriores")} a su primer pack registrado: no se descuentan de ningún pack.</p>` : ""}
+    ${packs.length ? packs.map(e => { const renovado = e !== ultimo && !e.anulado; return `<article class="packcard">
+        <header><div><h3>${esc(e.pack.nombre || "Pack")}</h3><span class="muted" style="font-size:.8rem">Compra: ${fechaCorta(e.pack.fechaCompra)} ${e.pack.fechaCompra.slice(0, 4)}${e.pack.precio ? ` · ${String(e.pack.precio.importe).replace(".", ",")} €` : ""}${e.pack.renovacionDe ? " · renovación" : ""}</span></div>${pillPack(e, renovado)}</header>
+        ${ticksPack(e, a.academiaId, true)}
+        <dl class="packnums"><div><dt>Contratadas</dt><dd>${e.pack.clasesContratadas}${e.disponibles !== e.pack.clasesContratadas ? ` <small>(${e.disponibles > e.pack.clasesContratadas ? "+" : ""}${e.disponibles - e.pack.clasesContratadas} ajuste)</small>` : ""}</dd></div>
+          <div><dt>Realizadas</dt><dd>${e.realizadas}${e.previas ? ` <small>(${e.previas} antes de la agenda)</small>` : ""}</dd></div>
+          <div><dt>Restantes</dt><dd class="big">${e.restantes}</dd></div></dl>
+        ${acciones(e, renovado)}
+        ${e.asignadas.length || ajustes(e.pack.id).length ? `<details><summary>Historial de consumos (${e.asignadas.length} de la agenda${ajustes(e.pack.id).length ? `, ${plural(ajustes(e.pack.id).length, "ajuste", "ajustes")}` : ""})</summary>
+          <ul class="hist">${ajustes(e.pack.id).map(x => `<li><span class="num">${fechaCorta(x.fecha)}</span><span>Ajuste: ${esc(x.motivo)}</span><b>${x.cantidad > 0 ? "+" : ""}${x.cantidad}</b></li>`).join("")}
+          ${[...e.asignadas].reverse().map((c, i) => `<li><span class="num">${fechaCorta(c.fecha)}</span><span>${cap(c.modalidad)} · ${c.minutos} min${c.estado !== "impartida" ? " · " + esc(c.estado === "cancelada_cuenta" ? "cancelada (cuenta)" : c.estado) : ""}</span><span class="muted">${e.previas + e.asignadas.length - i}.ª</span></li>`).join("")}</ul></details>` : ""}
+      </article>`; }).join("") : `<p class="empty">${a.modoPago === "por_clase" ? "Sin packs." : "Todavía no tiene ningún pack. Créalo con «+ Nuevo pack»."}</p>`}`;
+}
+
 /* ================= ficha del alumno ================= */
 let fichaAbierta = null, fichaTab = "resumen";
-function abrirFicha(id){ fichaAbierta = id; fichaTab = "resumen"; pintarFicha(); }
+function abrirFicha(id, tab = "resumen"){ fichaAbierta = id; fichaTab = tab; pintarFicha(); }
 function cerrarFicha(){ fichaAbierta = null; $("#drawerRoot").innerHTML = ""; }
 function pintarFicha(){
   const a = (S.rincon.alumnos || []).find(x => x.id === fichaAbierta);
@@ -592,11 +769,16 @@ function pintarFicha(){
       ${a.academiaId === "spanish-with-irene" ? `<div><dt>Clases anteriormente dadas</dt><dd>${a.clasesPreviasTarifa ? a.clasesPreviasTarifa.clases : 0}</dd></div>
       <div><dt>Clases en total contigo</dt><dd>${st ? st.totalTarifa : 0} ${st && st.totalTarifa >= 12 ? "· ya cobras 19/23 €" : "· 17/21 € hasta la 12"}</dd></div>` : ""}
     </dl>
+    <section class="section"><header><h3>${st && st.actual ? esc(st.actual.pack.nombre || "Pack actual") : a.modoPago === "por_clase" ? "Clase a clase" : "Pack"}</h3><button class="link" type="button" data-tab="packs">Ver packs</button></header>
+      ${st && st.actual ? `${ticksPack(st.actual, a.academiaId, true)}<p><b class="num">${st.actual.realizadas}</b> de ${st.actual.disponibles} realizadas · <b class="num">${st.actual.restantes}</b> ${st.actual.restantes === 1 ? "restante" : "restantes"} · ${pillPack(st.actual)}</p>`
+        : `<p class="empty">${a.modoPago === "por_clase" ? "Paga clase a clase." : "Todavía no tiene pack."}</p>`}
+    </section>
     <section class="section"><header><h3>Nombres en la agenda</h3></header>
       ${aliasDe(a.id).length ? `<ul class="hist">${aliasDe(a.id).map(z => `<li><span>«${esc(z.texto)}»</span><span class="muted">${esc(acad(z.academiaId).corto)}</span>${puedeEscribir() ? `<button class="link" type="button" data-unalias="${esc(z.id)}">Desvincular</button>` : "<span></span>"}</li>`).join("")}</ul>` : `<p class="empty">Ningún nombre de la agenda está vinculado a esta ficha todavía.</p>`}
     </section>
     <section class="section"><header><h3>Últimas clases</h3><span class="muted" style="font-size:.8rem">${plural(dadas.length, "clase dada", "clases dadas")} en la agenda${a.clasesPreviasTarifa && a.clasesPreviasTarifa.clases ? ` + ${a.clasesPreviasTarifa.clases} anteriores` : ""}</span></header>
       ${clases.length ? `<ul class="hist">${clases.slice(0, 8).map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`}</section>`;
+  else if (fichaTab === "packs") body = tabPacks(a, st);
   else if (fichaTab === "historial") body = clases.length ? `<ul class="hist">${clases.map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`;
   else body = `<p class="phase" style="align-self:flex-start">Próximo paso</p><p class="muted">La pestaña «${esc(tabs.find(t => t[0] === fichaTab)[1])}» llega en los siguientes pasos.</p>`;
   $("#drawerRoot").innerHTML = `<div class="scrim" id="fscrim"></div>
@@ -608,13 +790,21 @@ function pintarFicha(){
     </aside>`;
   $("#fscrim").onclick = cerrarFicha; $("#f_close").onclick = cerrarFicha;
   const ed = $("#f_edit"); if (ed) ed.onclick = () => formFicha(a);
+  document.querySelectorAll("#drawerRoot [data-pk]").forEach(b => b.onclick = () => {
+    const pk = b.dataset.id ? packById(b.dataset.id) : null, t = b.dataset.pk;
+    if (t === "nuevo") formPack(a, null);
+    else if (t === "renovar") formPack(a, null, { renovarDe: pk.id });
+    else if (t === "editar") formPack(a, pk);
+    else if (t === "ajuste") formAjuste(a, pk);
+    else accionPack(t, a, pk);
+  });
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { fichaTab = b.dataset.tab; pintarFicha(); });
   document.querySelectorAll("[data-unalias]").forEach(b => b.onclick = () => { const z = aliasDe(a.id).find(q => q.id === b.dataset.unalias); if (z) quitarAlias(z); });
 }
 
 /* ================= router y pantallas ================= */
 const VISTAS = { inicio: vInicio, calendario: vCalendario, "profe-resumen": vProfeResumen, "profe-alumnos": vProfeAlumnos, "profe-vincular": vVincular,
-  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias };
+  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias };
 
 function render(){
   const app = $("#app"), login = $("#login"), boot = $("#boot");
@@ -646,6 +836,16 @@ function render(){
     [["fnivel", "nivel"], ["festado", "estado"], ["fpago", "pago"]].forEach(([id, k]) => v.querySelector("#" + id).onchange = e => { fAl[k] = e.target.value; render(); });
   }
   const ct = v.querySelector("#confirmarTipos"); if (ct) ct.onclick = () => guardar(baseInicial(), "Configuración inicial", "Configuración guardada: academias, tarifas y avisos.");
+  v.querySelectorAll("[data-fichapk]").forEach(b => b.onclick = () => abrirFicha(b.dataset.fichapk, "packs"));
+  const pf = v.querySelector("#prefs");
+  if (pf) pf.onsubmit = ev => {
+    ev.preventDefault();
+    const ren = Number(pf.querySelector("#u_ren").value), urg = Number(pf.querySelector("#u_urg").value), err = pf.querySelector("#f_err");
+    if (!Number.isInteger(ren) || !Number.isInteger(urg) || ren < 1 || urg < 0 || urg >= ren) { err.textContent = "El aviso urgente tiene que ser menor que el de renovación, por ejemplo 3 y 1."; err.hidden = false; return; }
+    const base = baseInicial(), cfg = (S.rincon.config || []).find(c => c.id === "general"), ini = base.find(c => c.coleccion === "config");
+    const datos = { ...(cfg ? sinId(cfg) : ini.datos), umbrales: { renovacion: ren, urgente: urg } };
+    guardar([...base.filter(c => c.coleccion !== "config"), { coleccion: "config", id: "general", nuevo: !cfg, datos }], "Cambiar avisos de renovación", "Avisos guardados.");
+  };
   if (fichaAbierta) pintarFicha();
   document.body.classList.remove("menu-open");
 }

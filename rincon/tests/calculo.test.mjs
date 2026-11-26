@@ -144,7 +144,17 @@ test("no descuenta clases anteriores a la compra del pack", () => {
     items: [ev("2026-11-03", "Ana"), ev("2026-11-12", "Ana")] });
   const r = calcular(d, AHORA).porAlumno.get("ana");
   assert.equal(r.packs[0].realizadas, 1);
-  assert.equal(r.sinPack.length, 1, "la clase del 3 de noviembre queda sin pack (con aviso)");
+  assert.equal(r.sinPack.length, 0, "la clase del 3 de noviembre es anterior al primer pack: no avisa");
+  assert.equal(r.antesDePacks.length, 1);
+});
+
+test("una clase entre dos packs (sin clases disponibles) sí avisa como «sin pack»", () => {
+  const items = Array.from({ length: 12 }, (_, i) => ev(`2026-11-${String(i + 1).padStart(2, "0")}`, "Jon", "ty_lsi"));
+  const r = calcular(datos({ alumnos: [al("jon", "Jon", LSI)], alias: { j: [LSI, "Jon", { tipo: "alumno", alumnoId: "jon" }] },
+    items, packs: [pack("p1", "jon", 10, "2026-11-01")] }), AHORA).porAlumno.get("jon");
+  assert.equal(r.sinPack.length, 2);
+  assert.ok(calcular(datos({ alumnos: [al("jon", "Jon", LSI)], alias: { j: [LSI, "Jon", { tipo: "alumno", alumnoId: "jon" }] },
+    items, packs: [pack("p1", "jon", 10, "2026-11-01")] }), AHORA).avisos.some(a => a.tipo === "sin_pack"));
 });
 
 test("las clases se asignan por orden: al terminar un pack pasan al siguiente; el nuevo queda pendiente hasta entonces", () => {
@@ -201,6 +211,16 @@ test("clases ya consumidas: el saldo inicial cubre la agenda hasta su fecha y no
   assert.equal(r.packs[0].estado, "renovar");
   assert.equal(r.cubiertas.length, 2);
   assert.equal(r.sinPack.length, 0);
+});
+
+test("clases ya gastadas del pack sin fecha: se restan y todas las clases de la agenda cuentan", () => {
+  const d = datos({ alumnos: [al("ana", "Ana")], alias: { a: [IRENE, "Ana", { tipo: "alumno", alumnoId: "ana" }] },
+    packs: [pack("p1", "ana", 24, "2026-09-02", { consumidasPrevias: { clases: 15 } })],
+    items: [3, 5, 10, 12, 17, 19].map(d => ev(`2026-11-${String(d).padStart(2, "0")}`, "Ana")) });
+  const r = calcular(d, AHORA).porAlumno.get("ana");
+  assert.equal(r.packs[0].realizadas, 21);
+  assert.equal(r.packs[0].restantes, 3);
+  assert.equal(r.cubiertas.length, 0);
 });
 
 test("los ajustes manuales suman o restan clases disponibles", () => {
