@@ -261,6 +261,7 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .stbl td:first-child{font-weight:500;overflow-wrap:anywhere}
 .stbl td.zero{color:var(--ink-3)}
 .stbl tr:last-child td{border-bottom:0}
+.stbl .sub{display:block;font-size:.72rem;color:var(--ink-3)}
 .seg.sm button{padding:4px 10px;font-size:.78rem}
 .hint{font-size:.78rem;color:var(--ink-2);background:var(--surface-2);border-radius:8px;padding:8px 10px;margin:0;display:flex;flex-direction:column;gap:3px}
 .hint b{font-weight:600;color:var(--ink)}
@@ -832,16 +833,16 @@ function renderStudents(){
   const dur = e => Math.max(0, mins(e.end) - mins(e.start));
   const evs = Store.events().filter(e => ids.has(e.type) && e.date >= first && e.date <= last && (studentScope === "all" || isGiven(e)));
   const people = new Map();
-  let nInd = 0, nWs = 0, totalMin = 0;
+  let nInd = 0, nWs = 0, indMin = 0, wsMin = 0;
   evs.forEach(e => {
     const p = parseClass(e.title);
     if (p.kind === "workshop") nWs++; else nInd++;
-    totalMin += dur(e);
+    if (p.kind === "workshop") wsMin += dur(e); else indMin += dur(e);
     p.names.forEach(n => {
       const k = nameKey(n);
-      const r = people.get(k) || { name: n, ind: 0, ws: 0, min: 0 };
+      const r = people.get(k) || { name: n, ind: 0, ws: 0, minInd: 0, minWs: 0 };
       if (p.kind === "workshop") r.ws++; else r.ind++;
-      r.min += dur(e);
+      if (p.kind === "workshop") r.minWs += dur(e); else r.minInd += dur(e);
       people.set(k, r);
     });
   });
@@ -858,13 +859,17 @@ function renderStudents(){
     ${flagged.length > 1 ? `<div class="field"><label for="st_ac">Academia</label>
       <select id="st_ac">${flagged.map(t => `<option value="${esc(t.id)}"${t.id === studentAcademy ? " selected" : ""}>${esc(academyName(t))}</option>`).join("")}<option value="todas"${studentAcademy === "todas" ? " selected" : ""}>Todas las academias</option></select></div>` : ""}
     <div class="stats">
-      <div class="stat"><span class="v">${nInd}</span><span class="l">${nInd === 1 ? "clase individual" : "clases individuales"}${showWs ? "" : ` · ${hoursFmt(totalMin)}`}</span></div>
-      ${showWs ? `<div class="stat"><span class="v">${nWs}</span><span class="l">${nWs === 1 ? "workshop" : "workshops"} · ${hoursFmt(totalMin)} en total</span></div>`
+      <div class="stat"><span class="v">${nInd}</span><span class="l">${nInd === 1 ? "clase individual" : "clases individuales"} · ${hoursFmt(indMin)}</span></div>
+      ${showWs ? `<div class="stat"><span class="v">${nWs}</span><span class="l">${nWs === 1 ? "workshop" : "workshops"} · ${hoursFmt(wsMin)}</span></div>`
                : `<div class="stat"><span class="v">${rows.length}</span><span class="l">${rows.length === 1 ? "alumno" : "alumnos"}</span></div>`}
     </div>
     ${rows.length ? `<div class="stbl-wrap"><table class="stbl">
-      <thead><tr><th scope="col">Alumno</th><th scope="col">${showWs ? "Indiv." : "Clases"}</th>${showWs ? `<th scope="col">Workshop</th>` : ""}<th scope="col">Horas</th></tr></thead>
-      <tbody>${rows.map(r => `<tr><td>${esc(r.name)}</td><td${r.ind ? "" : ` class="zero"`}>${r.ind}</td>${showWs ? `<td${r.ws ? "" : ` class="zero"`}>${r.ws}</td>` : ""}<td>${hoursFmt(r.min)}</td></tr>`).join("")}</tbody>
+      <thead><tr><th scope="col">Alumno</th>${showWs
+        ? `<th scope="col">Individual</th><th scope="col">Workshop</th>`
+        : `<th scope="col">Clases</th><th scope="col">Horas</th>`}</tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${esc(r.name)}</td>${showWs
+        ? `<td${r.ind ? "" : ` class="zero"`}>${r.ind}${r.ind ? `<span class="sub">${hoursFmt(r.minInd)}</span>` : ""}</td><td${r.ws ? "" : ` class="zero"`}>${r.ws}${r.ws ? `<span class="sub">${hoursFmt(r.minWs)}</span>` : ""}</td>`
+        : `<td${r.ind ? "" : ` class="zero"`}>${r.ind}</td><td>${hoursFmt(r.minInd)}</td>`}</tr>`).join("")}</tbody>
     </table></div>` : `<p class="empty">${studentScope === "given" ? "Todavía no hay clases dadas este mes." : "No hay clases de esta academia este mes."}</p>`}
     <p class="empty" style="font-size:.76rem">Individual: el título es solo el nombre del alumno. Workshop: el título lleva «workshop» y los nombres separados por comas o «y».</p>`;
   const ac = el.querySelector("#st_ac");
