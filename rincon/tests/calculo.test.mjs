@@ -287,6 +287,19 @@ test("Irene: el contador de tarifa no se reinicia con un pack nuevo", () => {
   assert.deepEqual(factura(r, d, IRENE, "2026-11").lineas.slice(-2).map(l => l.importe), [19, 19], "pero se cobra a 19 €");
 });
 
+test("Irene: clases anteriores sin fecha → se suman antes de la primera clase de la agenda, aunque se vinculen nombres después", () => {
+  const items = [ev("2026-11-02", "Alex- Joe"), ev("2026-11-04", "Alex")];
+  for (let d = 5; d <= 15; d++) items.push(ev(`2026-11-${String(d).padStart(2, "0")}`, "Alex"));
+  const d = datos({ alumnos: [al("alex", "Alex", IRENE, { clasesPreviasTarifa: { clases: 10 } }), al("joe", "Joe")],
+    alias: { a: [IRENE, "Alex", { tipo: "alumno", alumnoId: "alex" }], aj: [IRENE, "Alex- Joe", { tipo: "varios", alumnoIds: ["alex", "joe"] }] }, items });
+  const r = calcular(d, AHORA);
+  assert.equal(r.porAlumno.get("alex").totalTarifa, 10 + 13);
+  assert.deepEqual(r.porAlumno.get("alex").consumos.map(c => c.ordinalTarifa).slice(0, 4), [11, 12, 13, 14]);
+  const f = factura(r, d, IRENE, "2026-11");
+  assert.equal(f.lineas[0].importe, 21, "la pareja del 2 nov es la clase 11 de Alex");
+  assert.equal(f.lineas[2].importe, 19, "la del 5 nov es la 13.ª");
+});
+
 test("Irene: las clases previas a la agenda cuentan para el tramo", () => {
   const d = datos({ alumnos: [al("ana", "Ana", IRENE, { clasesPreviasTarifa: { clases: 30, hasta: "2026-10-31" } })],
     alias: { a: [IRENE, "Ana", { tipo: "alumno", alumnoId: "ana" }] }, items: [ev("2026-11-02", "Ana")] });

@@ -461,11 +461,8 @@ function formFicha(alumno, preset = {}){
       <label class="field">Incorporación<input id="f_desde" type="date" value="${esc(v.fechaIncorporacion)}"></label>
       <label class="field">Nacionalidad<input id="f_nac" value="${esc(v.nacionalidad)}" maxlength="40"></label>
       <label class="field">Lengua materna<input id="f_lengua" value="${esc(v.lenguaMaterna)}" maxlength="40"></label>
-      <fieldset class="field full" id="f_prev_box">
-        <legend>Clases contigo antes de apuntarlas en la agenda <span class="muted">(solo Irene, para la tarifa 17/19 €)</span></legend>
-        <div class="row2"><label class="field">Número de clases<input id="f_prev_n" type="number" min="0" step="1" value="${prev.clases ?? ""}" placeholder="0"></label>
-        <label class="field">Contadas hasta el día<input id="f_prev_h" type="date" value="${esc(prev.hasta || "")}"></label></div>
-      </fieldset>
+      <label class="field full" id="f_prev_box">Clases anteriormente dadas <span class="muted">Las que hizo contigo antes de apuntarlas en la agenda. Sirve para saber si cobras 17 € o 19 €. Si es nuevo, déjalo vacío.</span>
+        <input id="f_prev_n" type="number" min="0" step="1" value="${prev.clases ?? ""}" placeholder="0" style="max-width:140px"></label>
       <p class="err full" id="f_err" hidden></p>
       <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
     </form>`);
@@ -483,12 +480,12 @@ function formFicha(alumno, preset = {}){
     };
     if (!d.nombre) return fail("Escribe el nombre del alumno.");
     if (!d.fechaIncorporacion) return fail("Indica la fecha de incorporación.");
-    const pn = m.querySelector("#f_prev_n").value.trim(), ph = m.querySelector("#f_prev_h").value;
-    if (d.academiaId === "spanish-with-irene" && (pn || ph)) {
+    const pn = m.querySelector("#f_prev_n").value.trim();
+    if (d.academiaId === "spanish-with-irene" && pn) {
       const n = Number(pn);
-      if (!Number.isInteger(n) || n < 0) return fail("El número de clases previas tiene que ser un número entero.");
-      if (n > 0 && !ph) return fail("Indica hasta qué día están contadas las clases previas.");
-      d.clasesPreviasTarifa = n > 0 ? { clases: n, hasta: ph } : null;
+      if (!Number.isInteger(n) || n < 0) return fail("Las clases anteriores tienen que ser un número entero, por ejemplo 20.");
+      // Se suman antes de la primera clase del alumno en la agenda: sin fecha que rellenar.
+      d.clasesPreviasTarifa = n > 0 ? { clases: n } : null;
     } else d.clasesPreviasTarifa = null;
     if (nuevo) {
       const id = D.nuevoId("alumnos", "al");
@@ -594,7 +591,8 @@ function pintarFicha(){
       <div><dt>Nivel inicial</dt><dd>${esc(a.nivelInicial || "—")}</dd></div><div><dt>Forma de pago</dt><dd>${a.modoPago === "por_clase" ? "Clase a clase" : "Con pack"}</dd></div>
       <div><dt>Profesora</dt><dd>Sara</dd></div><div><dt>Incorporación</dt><dd>${a.fechaIncorporacion ? fechaCorta(a.fechaIncorporacion) + " " + a.fechaIncorporacion.slice(0, 4) : "—"}</dd></div>
       <div><dt>Nacionalidad</dt><dd>${esc(a.nacionalidad || "—")}</dd></div><div><dt>Lengua materna</dt><dd>${esc(a.lenguaMaterna || "—")}</dd></div>
-      ${a.academiaId === "spanish-with-irene" ? `<div><dt>Clases para la tarifa</dt><dd>${st ? st.totalTarifa : 0} ${st && st.totalTarifa > 12 ? "· ya cobras 19/23 €" : "· 17/21 € hasta la 12"}</dd></div>` : ""}
+      ${a.academiaId === "spanish-with-irene" ? `<div><dt>Clases anteriormente dadas</dt><dd>${a.clasesPreviasTarifa ? a.clasesPreviasTarifa.clases : 0}</dd></div>
+      <div><dt>Clases en total contigo</dt><dd>${st ? st.totalTarifa : 0} ${st && st.totalTarifa >= 12 ? "· ya cobras 19/23 €" : "· 17/21 € hasta la 12"}</dd></div>` : ""}
     </dl>
     <section class="section"><header><h3>Nombres en la agenda</h3></header>
       ${aliasDe(a.id).length ? `<ul class="hist">${aliasDe(a.id).map(z => `<li><span>«${esc(z.texto)}»</span><span class="muted">${esc(acad(z.academiaId).corto)}</span>${puedeEscribir() ? `<button class="link" type="button" data-unalias="${esc(z.id)}">Desvincular</button>` : "<span></span>"}</li>`).join("")}</ul>` : `<p class="empty">Ningún nombre de la agenda está vinculado a esta ficha todavía.</p>`}
