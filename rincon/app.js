@@ -1,5 +1,6 @@
 // Mi rincón de profe · interfaz
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js";
+export const VERSION = "2026-11-26c";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26c";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -119,7 +120,7 @@ function renderNav(cur){
   $("#nav").innerHTML = nav().map(g => `<div class="navgrp"${g.space ? ` data-space="${g.space}"` : ""}>
     <span class="eyebrow">${esc(g.title)}</span>
     ${g.items.map(([id, label, icon, badge]) => `<a class="nav" href="#${id}" style="--accent:var(${g.space === "coord" ? "--oliva" : "--burdeos"})"${id === cur ? ' aria-current="page"' : ""}>${ic(icon)}<span>${esc(label)}</span>${badge ? `<span class="badge">${badge}</span>` : ""}</a>`).join("")}
-  </div>`).join("") + (S.sesion === "dentro" ? `<button class="nav" type="button" id="logout">${ic("out")}<span>Cerrar sesión</span></button>` : "");
+  </div>`).join("") + `<span class="version">Versión ${VERSION}</span>` + (S.sesion === "dentro" ? `<button class="nav" type="button" id="logout">${ic("out")}<span>Cerrar sesión</span></button>` : "");
   const lo = $("#logout");
   if (lo) lo.onclick = async () => { lo.disabled = true; await D.salir(); };
 }
@@ -637,7 +638,8 @@ function formPack(alumno, pack, opts = {}){
   const stA = modelo().porAlumno.get(alumno.id);
   const primeraAg = stA && stA.consumos[0] ? stA.consumos[0].fecha : null;
   const tienePacks = (S.rincon.packs || []).some(p => p.alumnoId === alumno.id && (!pack || p.id !== pack.id));
-  const desconocida = pack ? !!pack.fechaCompraDesconocida : (!base && !tienePacks);
+  const desconocida = pack ? !!pack.fechaCompraDesconocida : !base;   // marcada siempre, salvo al renovar
+  void tienePacks;
   const m = modal(`
     <h2>${nuevo ? (base ? "Renovar pack" : "Nuevo pack") : "Editar pack"} · ${esc(nombreCompleto(alumno))}</h2>
     ${base ? `<p class="muted">El pack nuevo empezará a contar cuando se termine el «${esc(base.nombre)}».</p>` : ""}
@@ -886,7 +888,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-26c");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -905,7 +907,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js");
+    D = await import("./datos.js?v=2026-11-26c");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
