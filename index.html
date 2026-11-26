@@ -123,6 +123,9 @@ button{cursor:pointer}
 .ev{position:absolute;z-index:2;border:0;text-align:left;border-radius:7px;padding:4px 7px;overflow:hidden;cursor:pointer;
   background:color-mix(in srgb, var(--c) 15%, var(--surface));color:var(--ink);display:flex;flex-direction:column;gap:1px;
   box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--c) 30%, transparent)}
+/* Sin lupa ni menú de selección del iPhone al mantener pulsado el calendario */
+#main, #main *, .mbar, .mbar *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#main input, #main textarea{-webkit-user-select:text;user-select:text}
 .ev.ghost{pointer-events:none;z-index:4;background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent);animation:ghostin .18s ease-out}
 @keyframes ghostin{from{transform:scale(.96);opacity:.4}}
 .ev:hover{background:color-mix(in srgb, var(--c) 24%, var(--surface))}
@@ -488,6 +491,7 @@ const DN = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"
 const DN3 = ["lun","mar","mié","jue","vie","sáb","dom"];
 const MN = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 const LSKEY = "agenda-ele-v1";
+const APP_VERSION = "26-nov-c"; // se ve en el menú del móvil: sirve para saber si el navegador tiene la versión nueva
 
 /* ---------- utils ---------- */
 const $ = s => document.querySelector(s);
@@ -745,22 +749,25 @@ function renderGrid(days){
     };
     // Dedo: mantener pulsado medio segundo en una hora libre, como en el calendario del iPhone.
     col.addEventListener("contextmenu", e => e.preventDefault());
-    col.addEventListener("pointerdown", pd => {
-      if (pd.pointerType === "mouse") return;
+    // Se usan eventos táctiles (touchstart/touchmove/touchend), que Safari en el iPhone gestiona de forma fiable.
+    col.addEventListener("touchstart", ts => {
       lastTouchAt = Date.now();
-      if (pd.target !== col) return;
-      const y0 = pd.clientY - col.getBoundingClientRect().top;
-      const sx = pd.clientX, sy = pd.clientY;
+      if (ts.touches.length !== 1 || ts.target !== col) return;
+      const t0 = ts.touches[0];
+      const y0 = t0.clientY - col.getBoundingClientRect().top;
+      const sx = t0.clientX, sy = t0.clientY;
+      let timer = null;
       const stop = () => {
         clearTimeout(timer);
-        document.removeEventListener("pointermove", mv);
-        document.removeEventListener("pointerup", stop);
-        document.removeEventListener("pointercancel", stop);
+        col.removeEventListener("touchmove", mv);
+        col.removeEventListener("touchend", stop);
+        col.removeEventListener("touchcancel", stop);
       };
-      const mv = e => { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) stop(); };
-      const timer = setTimeout(() => {
+      const mv = e => { const t = e.touches[0]; if (!t || Math.hypot(t.clientX - sx, t.clientY - sy) > 10) stop(); };
+      timer = setTimeout(() => {
         stop();
         lastTouchAt = Date.now();
+        try { window.getSelection().removeAllRanges(); } catch(e){}
         let m = h0*60 + Math.floor(y0 / H * 4) * 15;
         m = Math.max(h0*60, Math.min(m, 23*60));
         const end = Math.min(m + 60, 23*60 + 59);
@@ -774,10 +781,10 @@ function renderGrid(days){
         if (navigator.vibrate) { try { navigator.vibrate(15); } catch(e){} }
         setTimeout(() => openEvent(null, { date: col.dataset.date, start: hhmm(m), end: hhmm(end) }), 180);
       }, 500);
-      document.addEventListener("pointermove", mv);
-      document.addEventListener("pointerup", stop);
-      document.addEventListener("pointercancel", stop);
-    });
+      col.addEventListener("touchmove", mv, { passive: true });
+      col.addEventListener("touchend", stop);
+      col.addEventListener("touchcancel", stop);
+    }, { passive: true });
   });
   // scroll to morning on first paint
 }
@@ -1440,7 +1447,7 @@ function loadExamples(){
 
 /* ---------- wiring ---------- */
 document.querySelectorAll("button[data-view]").forEach(b => b.onclick = () => setView(b.dataset.view));
-$("#btnMenu").onclick = () => openSheet("Menú", [
+$("#btnMenu").onclick = () => openSheet("Menú · versión " + APP_VERSION, [
   { label: "Diseño", run: openDesign },
   { label: "Cerrar sesión", run: () => $("#btnLogout").click() }
 ]);
