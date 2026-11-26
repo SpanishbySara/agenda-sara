@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-26d";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26d";
+export const VERSION = "2026-11-26e";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26e";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -888,7 +888,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-26d");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-26e");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -907,7 +907,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-26d");
+    D = await import("./datos.js?v=2026-11-26e");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";

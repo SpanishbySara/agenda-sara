@@ -294,3 +294,17 @@ details summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
 .check input{width:auto}
 .version{font-size:.72rem;color:var(--muted);padding:0 10px}
 .tabs{scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+
+/* ---------- menú lateral en burdeos ---------- */
+:root{ --side-ink:#F8EEE8; --side-soft:rgba(248,238,232,.66); }
+.side{background:var(--burdeos);color:var(--side-ink);scrollbar-color:rgba(255,255,255,.28) transparent}
+.side .brand b{color:var(--side-ink)}
+.side .brand small,.side .version{color:var(--side-soft)}
+.side .eyebrow{color:var(--side-soft)}
+.side .navgrp[data-space="profe"] .eyebrow{color:#F3C9C3}
+.side .navgrp[data-space="coord"] .eyebrow{color:#DADDA8}
+.side .nav{color:var(--side-ink)}
+.side .nav:hover{background:rgba(255,255,255,.09)}
+.side .nav[aria-current="page"]{background:rgba(255,255,255,.17);color:#fff;font-weight:600}
+.side .badge{background:var(--terracota-soft);color:var(--terracota)}
+.side :focus-visible{outline-color:var(--side-ink)}
