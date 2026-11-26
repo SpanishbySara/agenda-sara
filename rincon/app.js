@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-26e";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26e";
+export const VERSION = "2026-11-26f";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26f";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -728,6 +728,11 @@ function accionPack(tipo, alumno, pack){
   if (tipo === "sirenueva") guarda([{ coleccion: "packs", id: pack.id, datos: { ...sinId(pack), noRenueva: null } }], "Quitar «no renueva»", "Vuelve a aparecer como pendiente de renovar.");
   if (tipo === "anular") confirmar("Anular pack", `El «${esc(pack.nombre)}» dejará de descontar clases y no se facturará. Sus clases pasarán al pack siguiente o quedarán sin pack. Se puede deshacer.`, "Anular pack",
     motivo => guarda([{ coleccion: "packs", id: pack.id, datos: { ...sinId(pack), estadoManual: "anulado" } }], motivo || "Anular pack", "Pack anulado."), true);
+  if (tipo === "eliminar") {
+    const aj = (S.rincon.ajustesPack || []).filter(x => x.packId === pack.id);
+    confirmar("Eliminar pack", `Se borrará el «${esc(pack.nombre)}» de ${esc(alumno.nombre)}${aj.length ? ` y sus ${plural(aj.length, "ajuste", "ajustes")}` : ""}. Las clases de la agenda no cambian: pasarán al pack siguiente o quedarán sin pack. No se puede deshacer.`, "Eliminar",
+      motivo => guarda([{ coleccion: "packs", id: pack.id, datos: null }, ...aj.map(x => ({ coleccion: "ajustesPack", id: x.id, datos: null }))], motivo || "Eliminar pack", "Pack eliminado."), true);
+  }
   if (tipo === "reactivar") guarda([{ coleccion: "packs", id: pack.id, datos: { ...sinId(pack), estadoManual: null } }], "Reactivar pack", "Pack reactivado.");
 }
 
@@ -740,7 +745,8 @@ function tabPacks(a, st){
       <button class="link" type="button" data-pk="editar" data-id="${e.pack.id}">Editar</button>
       <button class="link" type="button" data-pk="ajuste" data-id="${e.pack.id}">Ajuste manual</button>
       ${e.estado === "terminado" && !renovado ? (e.pack.noRenueva ? `<button class="link" type="button" data-pk="sirenueva" data-id="${e.pack.id}">Quitar «no renueva»</button>` : `<button class="link" type="button" data-pk="norenueva" data-id="${e.pack.id}">No renueva</button>`) : ""}
-      ${e.anulado ? `<button class="link" type="button" data-pk="reactivar" data-id="${e.pack.id}">Reactivar</button>` : `<button class="link danger-l" type="button" data-pk="anular" data-id="${e.pack.id}">Anular</button>`}</div>`;
+      ${e.anulado ? `<button class="link" type="button" data-pk="reactivar" data-id="${e.pack.id}">Reactivar</button>` : ""}
+      <button class="link danger-l" type="button" data-pk="eliminar" data-id="${e.pack.id}">Eliminar</button></div>`;
   return `
     <div class="packtop">${puedeEscribir() ? `${puedeRenovar ? `<button class="btn primary sm" type="button" data-pk="renovar" data-id="${ultimo.pack.id}">Renovar</button>` : ""}<button class="btn sm" type="button" data-pk="nuevo">+ Nuevo pack</button>` : ""}</div>
     ${a.modoPago === "por_clase" ? `<p class="note">Paga clase a clase: sus clases cuentan como sueltas. Si compra un pack, créalo aquí y las clases desde su fecha de compra se descontarán del pack.</p>` : ""}
@@ -888,7 +894,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-26e");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-26f");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -907,7 +913,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-26e");
+    D = await import("./datos.js?v=2026-11-26f");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
