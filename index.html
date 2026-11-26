@@ -251,7 +251,7 @@ button{cursor:pointer}
 .mcell.drop{outline:2px dashed var(--accent);outline-offset:-3px;background:var(--accent-soft)}
 body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .tylist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.tyrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
+.tyrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:8px;align-items:center}
 /* Alumnos del mes */
 .stbl-wrap{overflow-x:auto}
 .stbl{width:100%;border-collapse:collapse;font-size:.84rem;font-variant-numeric:tabular-nums}
@@ -795,7 +795,9 @@ function wireTodos(root){
 let lastCat = "prep";
 /* ---------- alumnos (tipos marcados «Por alumno», p. ej. Clase (Irene)) ---------- */
 // Un tipo cuenta por alumno si lo marcaste así; si nunca se ha marcado ni desmarcado, se activa solo cuando su nombre contiene «Irene».
-const isStudentType = t => !!t && (t.students === true || (t.students === undefined && /irene|\blsi\b/i.test(t.label || "")));
+// Un tipo cuenta por alumno si se llama «Clases (academia)» o «Clase (academia)», p. ej. «Clases (Irene)».
+const isStudentType = t => !!t && /^\s*clases?\s*\(\s*[^()]*\S[^()]*\)\s*$/i.test(t.label || "");
+const academyName = t => ((t.label || "").match(/\(([^()]+)\)/) || [])[1]?.trim() || t.label;
 const nameKey = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 // «Ana» → individual de Ana. «Workshop Ana, Pedro y Luis» → workshop con esos tres alumnos.
 function parseClass(title){
@@ -854,7 +856,7 @@ function renderStudents(){
         <button type="button" data-st="given" aria-pressed="${studentScope === "given"}">Ya dadas</button>
       </div></div>
     ${flagged.length > 1 ? `<div class="field"><label for="st_ac">Academia</label>
-      <select id="st_ac">${flagged.map(t => `<option value="${esc(t.id)}"${t.id === studentAcademy ? " selected" : ""}>${esc(t.label)}</option>`).join("")}<option value="todas"${studentAcademy === "todas" ? " selected" : ""}>Todas las academias</option></select></div>` : ""}
+      <select id="st_ac">${flagged.map(t => `<option value="${esc(t.id)}"${t.id === studentAcademy ? " selected" : ""}>${esc(academyName(t))}</option>`).join("")}<option value="todas"${studentAcademy === "todas" ? " selected" : ""}>Todas las academias</option></select></div>` : ""}
     <div class="stats">
       <div class="stat"><span class="v">${nInd}</span><span class="l">${nInd === 1 ? "clase individual" : "clases individuales"}${showWs ? "" : ` · ${hoursFmt(totalMin)}`}</span></div>
       ${showWs ? `<div class="stat"><span class="v">${nWs}</span><span class="l">${nWs === 1 ? "workshop" : "workshops"} · ${hoursFmt(totalMin)} en total</span></div>`
@@ -1149,7 +1151,7 @@ function openTypes(onDone, onCancel){
   const sync = m => {
     m.querySelectorAll(".tyrow[data-i]").forEach(r => {
       const t = list[+r.dataset.i]; if (!t) return;
-      t.label = r.querySelector(".ty-label").value; t.color = r.querySelector(".ty-color").value; t.lective = r.querySelector(".ty-lect").checked; t.students = r.querySelector(".ty-stud").checked;
+      t.label = r.querySelector(".ty-label").value; t.color = r.querySelector(".ty-color").value; t.lective = r.querySelector(".ty-lect").checked;
     });
     const nl = m.querySelector("#ty_new"); if (nl) newLabel = nl.value;
     const nc = m.querySelector("#ty_newc"); if (nc) newColor = nc.value;
@@ -1157,13 +1159,12 @@ function openTypes(onDone, onCancel){
   const draw = () => {
     const m = modal(`
       <h2>Tipos de clase y evento</h2>
-      <p class="empty">Cambia el nombre o el color, marca cuáles son horas lectivas (cuentan en los resúmenes de horas), cuáles se cuentan por alumno (en la vista Mes) y elimina los que no uses.</p>
+      <p class="empty">Cambia el nombre o el color, marca cuáles son horas lectivas (cuentan en los resúmenes de horas), y elimina los que no uses. Los tipos llamados «Clases (nombre de la academia)» cuentan las clases de cada alumno en la vista Mes.</p>
       <ul class="tylist">${list.map((t,i) => `
         <li class="tyrow" data-i="${i}">
           <input type="color" class="ty-color" value="${esc(safeColor(t.color))}" aria-label="Color de ${esc(t.label)}">
           <input class="ty-label" value="${esc(t.label)}" maxlength="40" aria-label="Nombre del tipo">
           <label class="check ty-l"><input type="checkbox" class="ty-lect"${t.lective?" checked":""}>Lectiva</label>
-          <label class="check ty-l" title="Cuenta las clases de cada alumno en la vista Mes"><input type="checkbox" class="ty-stud"${isStudentType(t)?" checked":""}>Por alumno</label>
           <button type="button" class="iconbtn" data-del="${i}" aria-label="Eliminar ${esc(t.label)}" title="Eliminar">✕</button>
         </li>
         ${pendingDel === i ? `<li class="tydel">
@@ -1177,7 +1178,7 @@ function openTypes(onDone, onCancel){
         <div class="eyebrow">Nuevo tipo</div>
         <div class="tyrow">
           <input type="color" id="ty_newc" value="${esc(newColor)}" aria-label="Color del nuevo tipo">
-          <input id="ty_new" value="${esc(newLabel)}" placeholder="Ej.: Taller de conversación" maxlength="40" aria-label="Nombre del nuevo tipo">
+          <input id="ty_new" value="${esc(newLabel)}" placeholder="Ej.: Clases (Irene)" maxlength="40" aria-label="Nombre del nuevo tipo">
           <button type="button" class="btn sm" id="ty_add">Añadir</button>
         </div>
         <div class="swatches">${PRESETS.map(c => `<button type="button" class="sw${c===newColor.toLowerCase()?" on":""}" data-sw="${c}" style="--c:${c}" aria-label="Usar color ${c}"></button>`).join("")}</div>
@@ -1211,7 +1212,7 @@ function openTypes(onDone, onCancel){
     m.querySelector("#ty_save").onclick = () => {
       sync(m); err = "";
       if (list.some(t => !t.label.trim())) { err = "Todos los tipos necesitan un nombre."; draw(); return; }
-      const clean = list.map(t => ({ id: t.id, label: t.label.trim(), color: safeColor(t.color), lective: !!t.lective, students: !!t.students }));
+      const clean = list.map(t => ({ id: t.id, label: t.label.trim(), color: safeColor(t.color), lective: !!t.lective }));
       const valid = new Set(clean.map(t => t.id));
       Store.put({ id: SETTINGS_ID, kind: "settings", types: clean });
       Store.events().forEach(ev => {
