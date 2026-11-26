@@ -265,11 +265,11 @@ function vProfeAlumnos(){
     <select id="fpago" aria-label="Forma de pago">${opt("pago", [["", "Pack y clase a clase"], ["pack", "Con pack"], ["por_clase", "Clase a clase"]])}</select>
   </div>
   <div class="twrap"><table><thead><tr><th>Alumno</th><th>Academia</th><th>Nivel</th><th>Modalidad</th><th>Profesora</th><th>Pack actual</th><th class="n">Realizadas</th><th class="n">Restantes</th><th>Estado</th></tr></thead>
-    <tbody>${al.map(a => { const st = m.porAlumno.get(a.id), pk = st && st.actual, dadas = st ? st.consumos.filter(c => c.cuenta).length : 0;
+    <tbody>${al.map(a => { const st = m.porAlumno.get(a.id), pk = st && st.actual, prev = (a.clasesPreviasTarifa && a.clasesPreviasTarifa.clases) || 0, dadas = (st ? st.consumos.filter(c => c.cuenta).length : 0) + prev;
       return `<tr data-ficha="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span><small>${esc(aliasDe(a.id).map(z => "«" + z.texto + "»").join(", ") || "Sin nombre de agenda vinculado")}</small></td>
       <td>${chip(a.academiaId)}</td><td>${esc(a.nivelInicial || "—")}</td><td>${modalidad(st)}</td><td>Sara</td>
       <td>${a.modoPago === "por_clase" ? '<span class="muted">Clase a clase</span>' : pk ? esc(pk.pack.nombre || "Pack") : '<span class="muted">Sin pack</span>'}</td>
-      <td class="n">${pk ? pk.realizadas : dadas}${pk ? "" : "<small>clases dadas</small>"}</td><td class="n">${pk ? pk.restantes : "—"}</td>
+      <td class="n">${pk ? pk.realizadas : dadas}${pk ? "" : `<small>clases dadas${prev ? ` (${prev} anteriores)` : ""}</small>`}</td><td class="n">${pk ? pk.restantes : "—"}</td>
       <td><span class="state st-${a.estado === "activo" ? "activo" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado)}</span></td></tr>`; }).join("")}</tbody></table>
     ${al.length ? "" : `<p class="empty">Ningún alumno coincide con estos filtros.</p>`}</div>`
     : `<div class="emptybox"><h2>Todavía no hay fichas</h2><p>Tu agenda tiene ${plural(m.sinVincular.length, "nombre", "nombres")} de alumnos de LSI e Irene. Crea sus fichas desde <b>Nombres sin vincular</b>: el nombre, la academia y la fecha de la primera clase se rellenan solos.</p><button class="go" type="button" data-go="profe-vincular">Ver nombres de la agenda</button></div>`}`;
@@ -595,7 +595,7 @@ function pintarFicha(){
     <section class="section"><header><h3>Nombres en la agenda</h3></header>
       ${aliasDe(a.id).length ? `<ul class="hist">${aliasDe(a.id).map(z => `<li><span>«${esc(z.texto)}»</span><span class="muted">${esc(acad(z.academiaId).corto)}</span>${puedeEscribir() ? `<button class="link" type="button" data-unalias="${esc(z.id)}">Desvincular</button>` : "<span></span>"}</li>`).join("")}</ul>` : `<p class="empty">Ningún nombre de la agenda está vinculado a esta ficha todavía.</p>`}
     </section>
-    <section class="section"><header><h3>Últimas clases</h3><span class="muted" style="font-size:.8rem">${plural(dadas.length, "clase dada", "clases dadas")}</span></header>
+    <section class="section"><header><h3>Últimas clases</h3><span class="muted" style="font-size:.8rem">${plural(dadas.length, "clase dada", "clases dadas")} en la agenda${a.clasesPreviasTarifa && a.clasesPreviasTarifa.clases ? ` + ${a.clasesPreviasTarifa.clases} anteriores` : ""}</span></header>
       ${clases.length ? `<ul class="hist">${clases.slice(0, 8).map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`}</section>`;
   else if (fichaTab === "historial") body = clases.length ? `<ul class="hist">${clases.map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`;
   else body = `<p class="phase" style="align-self:flex-start">Próximo paso</p><p class="muted">La pestaña «${esc(tabs.find(t => t[0] === fichaTab)[1])}» llega en los siguientes pasos.</p>`;
