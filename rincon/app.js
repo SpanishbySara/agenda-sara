@@ -648,11 +648,11 @@ function formPack(alumno, pack, opts = {}){
       <div class="field">Fecha de compra
         <label class="check"><input type="checkbox" id="p_nose"${desconocida ? " checked" : ""}> No sé la fecha de compra</label>
         <input id="p_compra" type="date" value="${esc(v.fechaCompra)}">
-        <span class="muted" id="p_nose_txt">Se contarán sus clases de la agenda desde la primera${primeraAg ? " (" + fechaCorta(primeraAg) + ")" : ""}. No entra en la factura del mes.</span></div>
-      <label class="field">${ac === "lsi-karmele" ? "Lo que cobras por el pack (€)" : "Precio (€, opcional)"}<input id="p_precio" type="number" min="0" step="0.01" value="${v.precio && v.precio.importe != null ? v.precio.importe : ""}"></label>
+        <span class="muted" id="p_nose_txt">Se contarán sus clases de la agenda desde la primera${primeraAg ? " (" + fechaCorta(primeraAg) + ")" : ""}.${ac === "lsi-karmele" ? " No entra en la factura del mes de LSI." : ""}</span></div>
+      <label class="field"${ac === "lsi-karmele" ? "" : " hidden"}>Lo que cobras por el pack (€)<input id="p_precio" type="number" min="0" step="0.01" value="${v.precio && v.precio.importe != null ? v.precio.importe : ""}"></label>
       ${base ? "" : `<label class="field full">Clases de este pack ya gastadas antes de la agenda <span class="muted">Solo las que no están apuntadas en tu agenda. Si el pack es nuevo, déjalo vacío.</span>
         <input id="p_prev" type="number" min="0" step="1" value="${v.consumidasPrevias ? v.consumidasPrevias.clases : ""}" style="max-width:140px"></label>`}
-      ${ac === "lsi-karmele" ? `<p class="muted full" style="font-size:.82rem">En LSI el pack se factura entero en el mes de su fecha de compra.</p>` : ""}
+      <p class="muted full" style="font-size:.82rem">${ac === "lsi-karmele" ? "En LSI el pack se factura entero en el mes de su fecha de compra." : "En Spanish with Irene facturas cada mes las clases dadas (17/19 € o 21/23 €). El pack solo sirve para controlar las clases que le quedan al alumno."}</p>
       <p class="err full" id="f_err" hidden></p>
       <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
     </form>`);
