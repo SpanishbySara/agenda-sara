@@ -381,6 +381,18 @@ test("LSI: los packs se facturan enteros en el mes de compra y sus clases no se 
   assert.deepEqual(oct.lineas.map(l => l.importe), [190]);
 });
 
+test("LSI: un pack con fecha de compra desconocida no se factura", () => {
+  const d = datos({ alumnos: [al("marta", "Marta", LSI)], alias: { m: [LSI, "Marta", { tipo: "alumno", alumnoId: "marta" }] },
+    packs: [pack("p1", "marta", 10, "2026-11-04", { fechaCompraDesconocida: true, precio: { importe: 180 } })], items: [ev("2026-11-04", "Marta", "ty_lsi")] });
+  const r = calcular(d, AHORA);
+  assert.equal(r.porAlumno.get("marta").packs[0].realizadas, 1);
+  assert.equal(factura(r, d, LSI, "2026-11").lineas.length, 0);
+  // aunque luego aparezcan clases anteriores a la fecha guardada, cuentan en ese pack
+  const d2 = datos({ ...{}, alumnos: d.alumnos, packs: d.packs, items: [ev("2026-10-20", "Marta", "ty_lsi"), ev("2026-11-04", "Marta", "ty_lsi")],
+    alias: { m: [LSI, "Marta", { tipo: "alumno", alumnoId: "marta" }] } });
+  assert.equal(calcular(d2, AHORA).porAlumno.get("marta").packs[0].realizadas, 2);
+});
+
 test("LSI: clases sueltas a 19 € (60 min) y 15 € (45 min); otra duración avisa", () => {
   const d = datos({ alumnos: [al("ahmed", "Ahmed", LSI, { modoPago: "por_clase" })], alias: { a: [LSI, "Ahmed", { tipo: "alumno", alumnoId: "ahmed" }] },
     items: [ev("2026-11-02", "Ahmed", "ty_lsi", "10:00", "11:00"), ev("2026-11-03", "Ahmed", "ty_lsi", "10:00", "10:45"), ev("2026-11-04", "Ahmed", "ty_lsi", "10:00", "11:30")] });

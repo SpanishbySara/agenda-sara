@@ -370,7 +370,7 @@ function vPacks(){
   const fila = (x, e) => `<button class="packrow" type="button" data-fichapk="${x.alumno.id}">
       <span><b>${esc(nombreCompleto(x.alumno))}</b><br><small class="muted">${esc(e.pack.nombre || "Pack")} · ${chip(x.alumno.academiaId)}</small></span>
       ${ticksPack(e, x.alumno.academiaId)}
-      <span class="when muted" style="font-size:.8rem">Compra<br>${fechaCorta(e.pack.fechaCompra)}</span>
+      <span class="when muted" style="font-size:.8rem">Compra<br>${e.pack.fechaCompraDesconocida ? "—" : fechaCorta(e.pack.fechaCompra)}</span>
       <span class="rest"${e.estado === "renovar" ? ' style="color:var(--terracota)"' : ["urgente", "terminado"].includes(e.estado) ? ' style="color:var(--urgent)"' : ""}>${e.restantes}<small>${e.estado === "terminado" ? "terminado" : e.estado === "pendiente" ? "sin empezar" : e.restantes === 1 ? "clase restante" : "restantes"}</small></span></button>`;
   const grupo = (t, html, n, vacio) => `<section class="section"><header><h2>${t}</h2><span class="muted" style="font-size:.8rem">${n}</span></header>${n ? `<div class="packrows">${html}</div>` : `<p class="empty">${vacio}</p>`}</section>`;
   const u = (m.datos.config && m.datos.config.umbrales) || m.umbral;
@@ -634,6 +634,10 @@ function formPack(alumno, pack, opts = {}){
   const base = opts.renovarDe ? packById(opts.renovarDe) : null;
   const elegida = pack ? (plant.find(p => p.nombre === pack.nombre)?.id || "otro") : base ? (plant.find(p => p.nombre === base.nombre)?.id || "otro") : (plant[0]?.id || "otro");
   const v = pack || { nombre: "", clasesContratadas: "", fechaCompra: dayKey(new Date()), precio: null, consumidasPrevias: null };
+  const stA = modelo().porAlumno.get(alumno.id);
+  const primeraAg = stA && stA.consumos[0] ? stA.consumos[0].fecha : null;
+  const tienePacks = (S.rincon.packs || []).some(p => p.alumnoId === alumno.id && (!pack || p.id !== pack.id));
+  const desconocida = pack ? !!pack.fechaCompraDesconocida : (!base && !tienePacks);
   const m = modal(`
     <h2>${nuevo ? (base ? "Renovar pack" : "Nuevo pack") : "Editar pack"} · ${esc(nombreCompleto(alumno))}</h2>
     ${base ? `<p class="muted">El pack nuevo empezará a contar cuando se termine el «${esc(base.nombre)}».</p>` : ""}
@@ -641,7 +645,10 @@ function formPack(alumno, pack, opts = {}){
       <label class="field full">Pack<select id="p_tipo">${plant.map(p => `<option value="${p.id}"${p.id === elegida ? " selected" : ""}>${esc(p.nombre)} · ${p.clases} clases${p.precio ? " · " + p.precio + " €" : ""}</option>`).join("")}<option value="otro"${elegida === "otro" ? " selected" : ""}>Otro</option></select></label>
       <label class="field" id="p_nombre_box">Nombre del pack<input id="p_nombre" value="${esc(v.nombre)}" maxlength="40" placeholder="Ej.: Pack 12"></label>
       <label class="field">Clases contratadas<input id="p_clases" type="number" min="1" step="1" value="${esc(v.clasesContratadas)}"></label>
-      <label class="field">Fecha de compra<input id="p_compra" type="date" value="${esc(v.fechaCompra)}"></label>
+      <div class="field">Fecha de compra
+        <label class="check"><input type="checkbox" id="p_nose"${desconocida ? " checked" : ""}> No sé la fecha de compra</label>
+        <input id="p_compra" type="date" value="${esc(v.fechaCompra)}">
+        <span class="muted" id="p_nose_txt">Se contarán sus clases de la agenda desde la primera${primeraAg ? " (" + fechaCorta(primeraAg) + ")" : ""}. No entra en la factura del mes.</span></div>
       <label class="field">${ac === "lsi-karmele" ? "Lo que cobras por el pack (€)" : "Precio (€, opcional)"}<input id="p_precio" type="number" min="0" step="0.01" value="${v.precio && v.precio.importe != null ? v.precio.importe : ""}"></label>
       ${base ? "" : `<label class="field full">Clases de este pack ya gastadas antes de la agenda <span class="muted">Solo las que no están apuntadas en tu agenda. Si el pack es nuevo, déjalo vacío.</span>
         <input id="p_prev" type="number" min="0" step="1" value="${v.consumidasPrevias ? v.consumidasPrevias.clases : ""}" style="max-width:140px"></label>`}
@@ -656,23 +663,26 @@ function formPack(alumno, pack, opts = {}){
     if (p && (!primera || nuevo)) { m.querySelector("#p_clases").value = p.clases; if (p.precio != null) m.querySelector("#p_precio").value = p.precio; }
   };
   tipo.onchange = () => aplicar(false); aplicar(true);
+  const nose = m.querySelector("#p_nose"), syncNose = () => { m.querySelector("#p_compra").hidden = nose.checked; m.querySelector("#p_nose_txt").hidden = !nose.checked; };
+  nose.onchange = syncNose; syncNose();
   m.querySelector("#fp").onsubmit = ev => {
     ev.preventDefault();
     const err = m.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
     const p = plant.find(x => x.id === tipo.value);
     const nombre = p ? p.nombre : m.querySelector("#p_nombre").value.trim();
-    const clases = Number(m.querySelector("#p_clases").value), compra = m.querySelector("#p_compra").value;
+    const sinFecha = nose.checked;
+    const clases = Number(m.querySelector("#p_clases").value), compra = sinFecha ? (primeraAg || dayKey(new Date())) : m.querySelector("#p_compra").value;
     const precioTxt = m.querySelector("#p_precio").value.trim(), precio = precioTxt === "" ? null : Number(precioTxt);
     const prevTxt = m.querySelector("#p_prev") ? m.querySelector("#p_prev").value.trim() : "", prev = prevTxt === "" ? 0 : Number(prevTxt);
     if (!nombre) return fail("Escribe un nombre para el pack.");
     if (!Number.isInteger(clases) || clases < 1) return fail("Las clases contratadas tienen que ser un número entero mayor que 0.");
     if (!compra) return fail("Indica la fecha de compra.");
     if (precio != null && (!Number.isFinite(precio) || precio < 0)) return fail("El precio no es válido.");
-    if (ac === "lsi-karmele" && precio == null) return fail("Indica lo que cobras por el pack: hace falta para la factura de LSI.");
+    if (ac === "lsi-karmele" && precio == null && !sinFecha) return fail("Indica lo que cobras por el pack: hace falta para la factura de LSI.");
     if (!Number.isInteger(prev) || prev < 0) return fail("Las clases ya gastadas tienen que ser un número entero.");
     if (prev > clases) return fail("Las clases ya gastadas no pueden ser más que las contratadas.");
     const datos = { ...(pack ? sinId(pack) : { alumnoId: alumno.id, noRenueva: null, estadoManual: null, creadoEn: Date.now(), renovacionDe: base ? base.id : null }),
-      nombre, categoria: p && p.categoria || null, tarifaId: p && p.tarifaId || null, clasesContratadas: clases, fechaCompra: compra,
+      nombre, categoria: p && p.categoria || null, tarifaId: p && p.tarifaId || null, clasesContratadas: clases, fechaCompra: compra, fechaCompraDesconocida: sinFecha,
       precio: precio == null ? null : { importe: precio, moneda: "EUR" }, consumidasPrevias: prev > 0 ? { clases: prev } : null };
     const resumen = pack && pack.clasesContratadas !== clases ? { clasesContratadas: [pack.clasesContratadas, clases] } : null;
     guardar([...baseInicial(), { coleccion: "packs", id: pack ? pack.id : D.nuevoId("packs", "pk"), nuevo, datos, resumen }],
@@ -735,7 +745,7 @@ function tabPacks(a, st){
     ${st && st.sinPack.length ? `<p class="banner">${plural(st.sinPack.length, "clase dada sin pack", "clases dadas sin pack")}: ${st.sinPack.slice(-5).map(c => fechaCorta(c.fecha)).join(", ")}${st.sinPack.length > 5 ? "…" : ""}. Crea o renueva un pack con una fecha de compra anterior para que se descuenten.</p>` : ""}
     ${st && st.antesDePacks.length ? `<p class="note">${plural(st.antesDePacks.length, "clase de la agenda es anterior", "clases de la agenda son anteriores")} a su primer pack registrado: no se descuentan de ningún pack.</p>` : ""}
     ${packs.length ? packs.map(e => { const renovado = e !== ultimo && !e.anulado; return `<article class="packcard">
-        <header><div><h3>${esc(e.pack.nombre || "Pack")}</h3><span class="muted" style="font-size:.8rem">Compra: ${fechaCorta(e.pack.fechaCompra)} ${e.pack.fechaCompra.slice(0, 4)}${e.pack.precio ? ` · ${String(e.pack.precio.importe).replace(".", ",")} €` : ""}${e.pack.renovacionDe ? " · renovación" : ""}</span></div>${pillPack(e, renovado)}</header>
+        <header><div><h3>${esc(e.pack.nombre || "Pack")}</h3><span class="muted" style="font-size:.8rem">Compra: ${e.pack.fechaCompraDesconocida ? "fecha desconocida" : fechaCorta(e.pack.fechaCompra) + " " + e.pack.fechaCompra.slice(0, 4)}${e.pack.precio ? ` · ${String(e.pack.precio.importe).replace(".", ",")} €` : ""}${e.pack.renovacionDe ? " · renovación" : ""}</span></div>${pillPack(e, renovado)}</header>
         ${ticksPack(e, a.academiaId, true)}
         <dl class="packnums"><div><dt>Contratadas</dt><dd>${e.pack.clasesContratadas}${e.disponibles !== e.pack.clasesContratadas ? ` <small>(${e.disponibles > e.pack.clasesContratadas ? "+" : ""}${e.disponibles - e.pack.clasesContratadas} ajuste)</small>` : ""}</dd></div>
           <div><dt>Realizadas</dt><dd>${e.realizadas}${e.previas ? ` <small>(${e.previas} antes de la agenda)</small>` : ""}</dd></div>

@@ -290,3 +290,5 @@ fieldset.field legend{padding:0 6px;font-size:.8rem}
 .btn.danger{background:var(--urgent);border-color:var(--urgent);color:var(--surface)}
 details summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
 .packrow small .chip{vertical-align:middle}
+.check{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:.88rem}
+.check input{width:auto}

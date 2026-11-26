@@ -34,7 +34,8 @@ export function esPasada(ev, ahora){
 /** Identificador del documento de alias: único por academia y nombre normalizado. */
 export const aliasId = (academiaId, texto) => academiaId + "~" + encodeURIComponent(nameKey(texto));
 const porFecha = (a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : mins(a.inicio) - mins(b.inicio)) || (a.eventId < b.eventId ? -1 : a.eventId > b.eventId ? 1 : 0);
-const inicioPack = p => p.fechaInicio || p.fechaCompra;
+// Sin fecha de compra conocida: el pack cubre todas las clases del alumno en la agenda.
+const inicioPack = p => p.fechaCompraDesconocida ? "0000-01-01" : (p.fechaInicio || p.fechaCompra);
 
 export const ESTADOS_CLASE = {
   impartida:        { label: "Impartida",          cuenta: true },
@@ -276,7 +277,7 @@ export function factura(resultado, datos, academiaId, mes){
     }
   } else if (academiaId === "lsi-karmele") {
     for (const p of datos.packs || []) {
-      if (p.estadoManual === "anulado" || !enMes(p.fechaCompra)) continue;
+      if (p.estadoManual === "anulado" || p.fechaCompraDesconocida || !enMes(p.fechaCompra)) continue;   // un pack antiguo sin fecha ya se facturó
       const al = datos.alumnos.find(a => a.id === p.alumnoId);
       if (!al || al.academiaId !== academiaId) continue;
       const importe = p.precio && typeof p.precio.importe === "number" ? p.precio.importe : null;
