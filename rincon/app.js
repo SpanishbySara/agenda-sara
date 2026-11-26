@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-26g";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26g";
+export const VERSION = "2026-11-26h";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26h";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -390,7 +390,8 @@ function vPreferencias(){
   <form id="prefs" class="fgrid" style="max-width:520px" novalidate>
     <label class="field">Aviso de renovación con<input id="u_ren" type="number" min="1" step="1" value="${u.renovacion}"><span class="muted">clases restantes o menos</span></label>
     <label class="field">Aviso urgente con<input id="u_urg" type="number" min="0" step="1" value="${u.urgente}"><span class="muted">clases restantes o menos</span></label>
-    <label class="field full">Nombre en amarillo cuando queden menos de<input id="u_ama" type="number" min="1" step="1" value="${Number.isInteger(u.resaltar) ? u.resaltar : 5}" style="max-width:140px"><span class="muted">clases en el pack. <span class="name resaltar">Así se verá</span></span></label>
+    <label class="field">Nombre en amarillo con<input id="u_ama" type="number" min="1" step="1" value="${coloresAviso().amarillo}"><span class="muted">clases restantes o menos · <span class="name resaltar amarillo">Así</span></span></label>
+    <label class="field">Nombre en rojo con<input id="u_rojo" type="number" min="0" step="1" value="${coloresAviso().rojo}"><span class="muted">clases restantes o menos · <span class="name resaltar rojo">Así</span></span></label>
     <p class="err full" id="f_err" hidden></p>
     ${puedeEscribir() ? `<div class="full"><button class="btn primary" type="submit">Guardar</button></div>` : ""}
   </form>
@@ -628,15 +629,18 @@ function ticksPack(e, academiaId, big){
   return `<span class="ticks ${academiaId === "lsi-karmele" ? "lsi" : ""}${["renovar", "urgente"].includes(e.estado) ? " alert" : ""}${big ? " big" : ""}" role="img" aria-label="${e.realizadas} de ${e.disponibles} clases">${h}</span>`;
 }
 const packById = id => (S.rincon.packs || []).find(p => p.id === id);
-/** Fondo amarillo: le quedan menos de N clases (5 por defecto) o el pack ya se terminó sin renovar. */
-const umbralAmarillo = () => { const c = (S.rincon.config || []).find(x => x.id === "general"); return (c && c.umbrales && Number.isInteger(c.umbrales.resaltar)) ? c.umbrales.resaltar : 5; };
-function amarillo(alumnoId){
+/** Color del nombre: amarillo con 6 clases restantes o menos, rojo con 2 o menos (o pack terminado sin renovar). Configurable. */
+const coloresAviso = () => { const c = (S.rincon.config || []).find(x => x.id === "general"), u = (c && c.umbrales) || {};
+  return { amarillo: Number.isInteger(u.amarillo) ? u.amarillo : 6, rojo: Number.isInteger(u.rojo) ? u.rojo : 2 }; };
+function colorAlumno(alumnoId){
   const st = modelo().porAlumno.get(alumnoId);
-  if (!st || st.alumno.modoPago === "por_clase" || st.alumno.estado === "finalizado") return false;
-  if (st.pendienteRenovar) return true;
-  return !!(st.actual && st.actual.estado !== "pendiente" && st.actual.restantes < umbralAmarillo());
+  if (!st || st.alumno.modoPago === "por_clase" || st.alumno.estado === "finalizado") return "";
+  if (st.pendienteRenovar) return "rojo";
+  if (!st.actual || st.actual.estado === "pendiente") return "";
+  const c = coloresAviso(), r = st.actual.restantes;
+  return r <= c.rojo ? "rojo" : r <= c.amarillo ? "amarillo" : "";
 }
-const resaltado = id => amarillo(id) ? " resaltar" : "";
+const resaltado = id => { const c = colorAlumno(id); return c ? " resaltar " + c : ""; };
 const sinId = ({ id, actualizadoEn, ...r }) => { void id; void actualizadoEn; return r; };
 
 /** Nuevo pack, renovación o edición. */
@@ -868,11 +872,11 @@ function render(){
   const pf = v.querySelector("#prefs");
   if (pf) pf.onsubmit = ev => {
     ev.preventDefault();
-    const ren = Number(pf.querySelector("#u_ren").value), urg = Number(pf.querySelector("#u_urg").value), ama = Number(pf.querySelector("#u_ama").value), err = pf.querySelector("#f_err");
-    if (!Number.isInteger(ama) || ama < 1) { err.textContent = "El número para el amarillo tiene que ser 1 o más, por ejemplo 5."; err.hidden = false; return; }
+    const ren = Number(pf.querySelector("#u_ren").value), urg = Number(pf.querySelector("#u_urg").value), ama = Number(pf.querySelector("#u_ama").value), rojo = Number(pf.querySelector("#u_rojo").value), err = pf.querySelector("#f_err");
+    if (!Number.isInteger(ama) || !Number.isInteger(rojo) || rojo < 0 || rojo >= ama) { err.textContent = "El número del rojo tiene que ser menor que el del amarillo, por ejemplo 6 y 2."; err.hidden = false; return; }
     if (!Number.isInteger(ren) || !Number.isInteger(urg) || ren < 1 || urg < 0 || urg >= ren) { err.textContent = "El aviso urgente tiene que ser menor que el de renovación, por ejemplo 3 y 1."; err.hidden = false; return; }
     const base = baseInicial(), cfg = (S.rincon.config || []).find(c => c.id === "general"), ini = base.find(c => c.coleccion === "config");
-    const datos = { ...(cfg ? sinId(cfg) : ini.datos), umbrales: { renovacion: ren, urgente: urg, resaltar: ama } };
+    const datos = { ...(cfg ? sinId(cfg) : ini.datos), umbrales: { renovacion: ren, urgente: urg, amarillo: ama, rojo } };
     guardar([...base.filter(c => c.coleccion !== "config"), { coleccion: "config", id: "general", nuevo: !cfg, datos }], "Cambiar avisos de renovación", "Avisos guardados.");
   };
   if (fichaAbierta) pintarFicha();
@@ -905,7 +909,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-26g");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-26h");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -924,7 +928,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-26g");
+    D = await import("./datos.js?v=2026-11-26h");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";

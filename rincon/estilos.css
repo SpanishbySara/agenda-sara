@@ -309,3 +309,5 @@ details summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
 .side .badge{background:var(--terracota-soft);color:var(--terracota)}
 .side :focus-visible{outline-color:var(--side-ink)}
 .name.resaltar{background:#FBE6A0;color:#3A2A12;border-radius:6px;padding:1px 7px;margin-left:-7px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.name.resaltar.amarillo{background:#FBE6A0;color:#3A2A12}
+.name.resaltar.rojo{background:#F7CACA;color:#6E1620}
