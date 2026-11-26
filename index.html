@@ -1,6 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Agenda ELE</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Agenda">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#3a2518">
+<link rel="apple-touch-icon" href="icono-agenda.png">
+<link rel="icon" type="image/png" href="icono-agenda.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Inter:wght@400;500;600&display=swap">
 <style>
@@ -223,6 +230,64 @@ button{cursor:pointer}
 .types label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 .types i{width:8px;height:8px;border-radius:50%;background:var(--c)}
 @media (max-width:460px){.fgrid{grid-template-columns:1fr}}
+
+/* ---------- Móvil ---------- */
+.only-m{display:none!important}
+.wlist{display:flex;flex-direction:column}
+.wday{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 12px;border-bottom:1px solid var(--line-2)}
+.wday:last-child{border-bottom:0}
+.wday.today{background:color-mix(in srgb, var(--accent) 7%, transparent)}
+.wdate{border:0;background:transparent;padding:2px 0;display:flex;flex-direction:column;align-items:flex-start;gap:0;text-align:left}
+.wdate .dname{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-3);font-weight:600}
+.wdate .dnum{font-family:var(--font-display);font-size:1.4rem;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
+.wday.today .dnum{color:var(--accent)}
+.wevs{display:flex;flex-direction:column;gap:5px;min-width:0}
+.wev{display:flex;gap:8px;align-items:baseline;border:0;text-align:left;border-radius:8px;padding:8px 10px;background:color-mix(in srgb, var(--c) 16%, var(--surface));box-shadow:inset 3px 0 0 var(--c);min-width:0}
+.wev .wt{font-size:.78rem;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.wev .wn{font-weight:600;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.wempty{border:0;background:transparent;text-align:left;padding:8px 0;color:var(--ink-3);font-size:.86rem}
+.wtodo{border:0;background:transparent;text-align:left;padding:2px 0;color:var(--ink-3);font-size:.78rem;font-variant-numeric:tabular-nums}
+.wtodo.all{color:var(--ok)}
+.wadd{width:36px;height:36px;font-size:1.2rem;border:1px solid var(--line)}
+.sheet{display:flex;flex-direction:column;gap:8px}
+.sheetbtn{justify-content:center;padding:13px 14px;font-size:1rem}
+.mbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;align-items:center;gap:10px;background:var(--surface);border-top:1px solid var(--line);
+  padding:8px max(12px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))}
+.mseg{flex:1;display:grid;grid-template-columns:repeat(3,1fr)}
+.mseg button{padding:10px 6px;font-size:.95rem}
+.madd{flex:none;width:48px;height:48px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);font-size:1.6rem;line-height:1;display:grid;place-items:center;box-shadow:0 4px 12px rgb(0 0 0 / .2)}
+@media (max-width:640px){
+  .only-m{display:inline-flex!important}
+  .mbar.only-m{display:flex!important}
+  body{padding-block:12px calc(96px + env(safe-area-inset-bottom, 0px))}
+  .wrap{gap:12px}
+  .top{flex-wrap:nowrap}
+  .brand .sub{display:none}
+  .brand h1{font-size:1.35rem}
+  #btnDesign,#btnNewTodo,#btnNewEvent,#btnLogout{display:none}
+  #btnMenu{width:40px;height:40px;font-size:1.3rem}
+  .toolbar > .seg{display:none}
+  .nav{width:100%}
+  .period{font-size:1.05rem;margin-left:4px;min-width:0}
+  .period small{display:block;margin:2px 0 0}
+  .nav .icon{width:38px;height:38px}
+  .nav .btn{min-height:38px}
+  /* En el día, las tareas van primero; el horario debajo. */
+  body[data-view="dia"] .side{order:-1}
+  /* Evita el zoom automático del iPhone al tocar un campo */
+  input,select,textarea{font-size:16px!important}
+  .iconbtn{width:36px;height:36px}
+  .titem{padding:8px 4px}
+  .titem .ops{opacity:1}
+  .hrow .exb{display:none}
+  .ev .rs{height:14px}
+  /* Ventanas como hoja inferior, con los botones siempre a la vista */
+  .ov{place-items:end center;padding:env(safe-area-inset-top, 0px) 0 0}
+  .modal{width:100%;max-height:92vh;border-radius:16px 16px 0 0;padding:18px 16px 0}
+  .modal .mfoot{position:sticky;bottom:0;background:var(--surface);margin:0 -16px;padding:12px 16px calc(14px + env(safe-area-inset-bottom, 0px));border-top:1px solid var(--line-2)}
+  .modal .mfoot .r{flex:1;justify-content:flex-end}
+  .notice{padding:10px 12px}
+}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.76rem;color:var(--ink-2)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .legend i{width:8px;height:8px;border-radius:50%;background:var(--c)}
@@ -331,6 +396,7 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
       <button class="btn" id="btnNewTodo" type="button">+ Tarea</button>
       <button class="btn primary" id="btnNewEvent" type="button">+ Clase o evento</button>
       <button class="btn ghost" id="btnLogout" type="button">Cerrar sesión</button>
+      <button class="btn ghost icon only-m" id="btnMenu" type="button" aria-label="Menú">⋯</button>
     </div>
   </header>
 
@@ -361,6 +427,15 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
       <div class="status" id="status"><i></i><span>Conectando…</span></div>
     </aside>
   </div>
+
+  <nav class="mbar only-m" aria-label="Vistas">
+    <div class="seg mseg" role="group" aria-label="Vista">
+      <button type="button" data-view="dia">Día</button>
+      <button type="button" data-view="semana">Semana</button>
+      <button type="button" data-view="mes">Mes</button>
+    </div>
+    <button type="button" class="madd" id="mAdd" aria-label="Añadir clase o tarea">+</button>
+  </nav>
 </div>
 <div id="modalRoot"></div>
 
@@ -525,12 +600,44 @@ function setPalette(p){
   try { localStorage.setItem(LSKEY + "-pal", p); } catch(e){}
   Store.put({ id: "settings-tema", kind: "settings", palette: p });
 }
+/* ---------- móvil ---------- */
+const mobileMQ = window.matchMedia("(max-width: 640px)");
+const isMobile = () => mobileMQ.matches;
+// Semana en el móvil: una lista por día en lugar de 7 columnas estrechas.
+function renderWeekList(days){
+  const tk = todayKey();
+  const html = `<div class="wlist">` + days.map(d => {
+    const k = key(d), evs = Store.eventsOn(k), ts = Store.todosOn(k), done = ts.filter(t => t.done).length;
+    return `<div class="wday${k === tk ? " today" : ""}">
+      <button type="button" class="wdate" data-day="${k}" aria-label="Abrir ${esc(fmtLong(d))}"><span class="dname">${DN3[dow(d)]}</span><span class="dnum">${d.getDate()}</span></button>
+      <div class="wevs">
+        ${evs.length ? evs.map(e => `<button type="button" class="wev" data-ev="${esc(e.id)}" style="--c:${colorOf(e.type)}"><span class="wt">${esc(e.start)}–${esc(e.end)}</span><span class="wn">${esc(e.title)}</span></button>`).join("") : `<button type="button" class="wempty" data-day="${k}">Sin clases</button>`}
+        ${ts.length ? `<button type="button" class="wtodo${done === ts.length ? " all" : ""}" data-day="${k}">✓ ${done}/${ts.length} ${ts.length === 1 ? "tarea" : "tareas"}</button>` : ""}
+      </div>
+      <button type="button" class="iconbtn wadd" data-add="${k}" aria-label="Añadir clase el ${esc(fmtLong(d))}">+</button>
+    </div>`;
+  }).join("") + `</div>`;
+  const main = $("#main"); main.innerHTML = html;
+  main.querySelectorAll("[data-day]").forEach(b => b.onclick = () => select(b.dataset.day, true));
+  main.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = Store.items.get(b.dataset.ev); if (e) openEvent(e); });
+  main.querySelectorAll("[data-add]").forEach(b => b.onclick = () => openEvent(null, { date: b.dataset.add, start: "10:00", end: "11:00" }));
+}
+function openSheet(title, actions){
+  const m = modal(`<h2>${esc(title)}</h2><div class="sheet">${actions.map((a, i) => `<button type="button" class="btn sheetbtn${a.primary ? " primary" : ""}" data-i="${i}">${esc(a.label)}</button>`).join("")}</div>
+    <div class="mfoot"><div class="r"><button type="button" class="btn" id="sh_x">Cancelar</button></div></div>`);
+  m.querySelectorAll("[data-i]").forEach(b => b.onclick = () => { closeModal(); actions[+b.dataset.i].run(); });
+  m.querySelector("#sh_x").onclick = closeModal;
+}
 function render(){
   if (drag) { pendingRender = true; return; }
   applyPalette();
-  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === state.view)));
+  document.querySelectorAll("button[data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === state.view)));
+  document.body.dataset.view = state.view;
   renderPeriod(); renderNotice();
-  if (state.view === "mes") renderMonth(); else renderGrid(state.view === "dia" ? [state.cursor] : Array.from({length:7}, (_,i) => addDays(startOfWeek(state.cursor), i)));
+  const weekDays = () => Array.from({length:7}, (_,i) => addDays(startOfWeek(state.cursor), i));
+  if (state.view === "mes") renderMonth();
+  else if (state.view === "semana" && isMobile()) renderWeekList(weekDays());
+  else renderGrid(state.view === "dia" ? [state.cursor] : weekDays());
   renderDayTodos(); renderWeek(); renderStatus(); renderLegend();
   $("#weekSummary").hidden = state.view !== "semana";
   $("#monthSummary").hidden = state.view !== "mes";
@@ -652,7 +759,7 @@ function renderMonth(){
   html += `</div>`;
   const main = $("#main"); main.innerHTML = html;
   main.querySelectorAll("[data-sel]").forEach(b => {
-    b.onclick = () => { if (Date.now() - lastDragEnd < 400) return; select(b.dataset.sel, false); };
+    b.onclick = () => { if (Date.now() - lastDragEnd < 400) return; select(b.dataset.sel, isMobile()); };
     b.ondblclick = () => select(b.dataset.sel, true);
   });
   main.querySelectorAll(".mev[data-ev]").forEach(attachMonthDrag);
@@ -1291,7 +1398,16 @@ function loadExamples(){
 }
 
 /* ---------- wiring ---------- */
-document.querySelectorAll(".seg button").forEach(b => b.onclick = () => setView(b.dataset.view));
+document.querySelectorAll("button[data-view]").forEach(b => b.onclick = () => setView(b.dataset.view));
+$("#btnMenu").onclick = () => openSheet("Menú", [
+  { label: "Diseño", run: openDesign },
+  { label: "Cerrar sesión", run: () => $("#btnLogout").click() }
+]);
+$("#mAdd").onclick = () => openSheet("Añadir", [
+  { label: "Nueva clase o evento", primary: true, run: () => openEvent(null) },
+  { label: "Nueva tarea", run: () => openTodo(null) }
+]);
+mobileMQ.addEventListener("change", () => render());
 $("#prev").onclick = () => shift(-1);
 $("#next").onclick = () => shift(1);
 $("#today").onclick = () => { state.cursor = new Date(); render(); };
@@ -1329,7 +1445,7 @@ document.addEventListener("keydown", e => {
   else if (e.key === "ArrowRight") shift(1);
   else if (e.key === "h" || e.key === "H") { state.cursor = new Date(); render(); }
 });
-setInterval(() => { if (!drag && !$("#modalRoot").innerHTML && state.view !== "mes") renderGrid(state.view === "dia" ? [state.cursor] : Array.from({length:7}, (_,i) => addDays(startOfWeek(state.cursor), i))); }, 60000);
+setInterval(() => { if (!drag && !$("#modalRoot").innerHTML && state.view !== "mes" && !(state.view === "semana" && isMobile())) renderGrid(state.view === "dia" ? [state.cursor] : Array.from({length:7}, (_,i) => addDays(startOfWeek(state.cursor), i))); }, 60000);
 
 /* ---------- acceso ---------- */
 const show = which => {
