@@ -311,3 +311,14 @@ details summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
 .name.resaltar{background:#FBE6A0;color:#3A2A12;border-radius:6px;padding:1px 7px;margin-left:-7px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 .name.resaltar.amarillo{background:#FBE6A0;color:#3A2A12}
 .name.resaltar.rojo{background:#F7CACA;color:#6E1620}
+
+/* ---------- estados de clase ---------- */
+.estados{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px}
+.estado-al{display:block;white-space:nowrap}
+.field textarea{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 11px;font:inherit;font-size:.92rem;color:var(--ink);width:100%;resize:vertical}
+.ayuda{grid-column:1 / -1;font-size:.85rem}
+.ayuda ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px;color:var(--ink)}
+.hist li.clic{cursor:pointer}
+.hist li.clic:hover{background:color-mix(in srgb,var(--burdeos) 5%,transparent)}
+td small{display:block}
+input[type=radio],input[type=checkbox]{accent-color:var(--burdeos)}

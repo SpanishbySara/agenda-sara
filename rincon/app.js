@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-26h";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26h";
+export const VERSION = "2026-11-26i";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-26i";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -186,6 +186,8 @@ function vInicio(){
     else if (st.actual && ["urgente", "renovar"].includes(st.actual.estado)) avisos.push({ cls: st.actual.estado === "urgente" ? "urgent" : "", t: a.nombre, s: `${st.actual.restantes === 1 ? "Queda 1 clase" : "Quedan " + st.actual.restantes + " clases"} del ${st.actual.pack.nombre || "pack"}` });
     void id;
   }
+  const motor = m.avisos.filter(a => ["recuperacion", "duplicado", "huerfano"].includes(a.tipo));
+  if (motor.length) avisos.push({ cls: "", t: plural(motor.length, "aviso en el historial", "avisos en el historial"), s: [...new Set(motor.map(a => a.texto))].slice(0, 2).join(" · "), go: "profe-historial" });
   const tipos = academias();
   if (tipos.some(a => !a.tiposAgenda.length)) avisos.push({ cls: "urgent", t: "Falta un tipo de clase", s: `No encuentro en tu agenda el tipo de ${tipos.filter(a => !a.tiposAgenda.length).map(a => a.nombre).join(" ni de ")}.`, go: "conf-tipos" });
   const h = new Date().getHours(), d = new Date();
@@ -305,9 +307,10 @@ function vHistorial(){
   <div class="tools"><div class="monthnav"><button class="iconbtn" type="button" data-mes="-1" aria-label="Mes anterior">${ic("left")}</button><b>${cap(mesNombre(mesHist))}</b><button class="iconbtn" type="button" data-mes="1" aria-label="Mes siguiente">${ic("right")}</button></div>
     <span class="muted" style="font-size:.85rem">${plural(ses.filter(s => s.pasada).length, "clase dada", "clases dadas")}${ses.some(s => !s.pasada) ? ` · ${ses.filter(s => !s.pasada).length} previstas` : ""}</span></div>
   ${ses.length ? `<div class="twrap"><table><thead><tr><th>Fecha</th><th>Hora</th><th>Academia</th><th>Alumnos</th><th>Modalidad</th><th class="n">Duración</th><th>Estado</th></tr></thead>
-    <tbody>${ses.map(s => `<tr class="static"><td>${fechaCorta(s.ev.date)}</td><td class="num">${esc(s.ev.start)}–${esc(s.ev.end)}</td><td>${chip(s.academiaId)}</td><td>${nombresSesion(s)}</td>
-      <td>${cap(s.p.modalidad)}</td><td class="n">${duracion(s.ev)} min</td><td>${s.pasada ? '<span class="state st-activo">Impartida</span>' : '<span class="state st-pausa">Prevista</span>'}</td></tr>`).join("")}</tbody></table></div>
-    <p class="note">Marcar cancelaciones y recuperaciones llega en un paso posterior. Por ahora, toda clase pasada cuenta como impartida.</p>`
+    <tbody>${ses.map(s => { const reg = m.datos.registros.get(s.ev.id);
+      return `<tr data-clase="${esc(s.ev.id)}" tabindex="0"><td>${fechaCorta(s.ev.date)}</td><td class="num">${esc(s.ev.start)}–${esc(s.ev.end)}</td><td>${chip(s.academiaId)}</td><td>${nombresSesion(s)}${reg && reg.contenido ? `<small>${esc(reg.contenido)}</small>` : ""}</td>
+      <td>${cap(s.p.modalidad)}</td><td class="n">${duracion(s.ev)} min</td><td>${estadoSesion(s)}</td></tr>`; }).join("")}</tbody></table></div>
+    <p class="note">Pulsa una clase para marcar cancelaciones o recuperaciones y apuntar el contenido trabajado. Si no marcas nada, una clase pasada cuenta como impartida.</p>`
     : `<p class="empty">No hay clases de LSI ni de Irene en ${mesNombre(mesHist)}.</p>`}`;
 }
 
@@ -609,6 +612,79 @@ function quitarAlias(al){
   guardar([{ coleccion: "alias", id: al.id, datos: null }], "Desvincular nombre", `«${al.texto}» vuelve a Nombres sin vincular.`);
 }
 
+/* ================= estados de cada clase ================= */
+const ETIQUETA = { impartida: "Impartida", cancelada_cuenta: "Cancelada (cuenta)", cancelada: "Cancelada", recuperacion: "Recuperación" };
+const CSS_ESTADO = { impartida: "st-activo", cancelada_cuenta: "st-propuesta", cancelada: "st-pausa", recuperacion: "st-activo" };
+/** Etiqueta del estado de un alumno en una clase (consumo del motor). */
+function etiquetaConsumo(c){
+  if (c.prevista) return c.estado !== "impartida" ? `<span class="state st-pausa">Prevista · ${ETIQUETA[c.estado]}</span>` : '<span class="state st-pausa">Prevista</span>';
+  if (c.estado === "recuperacion" && !c.cuenta) return `<span class="state st-pausa" title="No descuenta: la clase original ya contaba">Recuperación (no cuenta)</span>`;
+  return `<span class="state ${CSS_ESTADO[c.estado]}">${ETIQUETA[c.estado]}</span>`;
+}
+function estadoSesion(s){
+  const m = modelo(), al = new Map((S.rincon.alumnos || []).map(a => [a.id, a]));
+  const cs = m.consumos.filter(c => c.eventId === s.ev.id);
+  if (!cs.length) return s.pasada ? '<span class="state st-activo">Impartida</span>' : '<span class="state st-pausa">Prevista</span>';
+  if (cs.every(c => c.estado === "impartida")) return etiquetaConsumo(cs[0]);
+  return cs.map(c => `<span class="estado-al">${cs.length > 1 ? esc(al.get(c.alumnoId)?.nombre || "?") + ": " : ""}${etiquetaConsumo(c)}</span>`).join("");
+}
+
+/** Marcar estados, recuperación, contenido y observaciones de una clase. */
+function formClase(eventId){
+  const m = modelo(), s = m.sesiones.find(x => x.ev.id === eventId); if (!s) return;
+  const reg = m.datos.registros.get(eventId) || {}, porAl = reg.porAlumno || {};
+  const al = new Map((S.rincon.alumnos || []).map(a => [a.id, a]));
+  // Clases que se pueden recuperar: canceladas del mismo alumno, anteriores a esta y sin otra recuperación.
+  const yaRecuperadas = new Map();
+  for (const [id, r] of m.datos.registros) if (id !== eventId) for (const [a, x] of Object.entries(r.porAlumno || {})) if (x.estado === "recuperacion" && x.recuperaDe) yaRecuperadas.set(a + "|" + x.recuperaDe, id);
+  const candidatas = alumnoId => m.consumos.filter(c => c.alumnoId === alumnoId && c.eventId !== eventId && ["cancelada", "cancelada_cuenta"].includes(c.estado)
+    && c.fecha <= s.ev.date && !yaRecuperadas.has(alumnoId + "|" + c.eventId)).sort((a, b) => a.fecha < b.fecha ? 1 : -1);
+  const filaAl = id => { const r = porAl[id] || {}, est = r.estado || "impartida", cand = candidatas(id);
+    return `<fieldset class="field full persona" data-al="${esc(id)}"><legend>${esc(nombreCompleto(al.get(id) || { nombre: "?" }))}</legend>
+      <div class="estados">${Object.entries(ETIQUETA).map(([k, l]) => `<label class="check"><input type="radio" name="e_${esc(id)}" value="${k}"${k === est ? " checked" : ""}> ${l}</label>`).join("")}</div>
+      <div class="row2"><label class="field" data-recup>Recupera la clase del<select data-recupera>${cand.length ? cand.map(c => `<option value="${esc(c.eventId)}"${c.eventId === r.recuperaDe ? " selected" : ""}>${fechaCorta(c.fecha)} · ${ETIQUETA[c.estado]}</option>`).join("") : '<option value="">No hay clases canceladas para recuperar</option>'}</select></label>
+      <label class="field">Nota (opcional)<input data-nota value="${esc(r.nota || "")}" maxlength="140" placeholder="Ej.: avisó tarde, urgencia familiar"></label></div></fieldset>`; };
+  const ayuda = `<details class="ayuda"><summary>¿Qué cuenta cada estado?</summary><ul>
+    <li><b>Impartida:</b> descuenta 1 del pack y se factura.</li><li><b>Cancelada (cuenta):</b> canceló tarde o no la recupera. Descuenta y se factura.</li>
+    <li><b>Cancelada:</b> no descuenta ni se factura. Si la recupera más adelante, marca la nueva clase como Recuperación.</li>
+    <li><b>Recuperación:</b> recupera una clase cancelada. La original y su recuperación cuentan 1 en total.</li>
+    ${s.p.modalidad === "pareja" ? "<li>En pareja: si solo cuenta uno de los dos, en Irene se factura como clase individual.</li>" : ""}</ul></details>`;
+  const md = modal(`
+    <h2>Clase del ${fechaCorta(s.ev.date)} · ${esc(s.ev.start)}–${esc(s.ev.end)}</h2>
+    <p class="muted">${esc(s.ev.title)} · ${esc(acad(s.academiaId).nombre)} · ${cap(s.p.modalidad)}${s.pasada ? "" : " · todavía no se ha dado"}</p>
+    <form id="fc" class="fgrid" novalidate>
+      ${s.p.alumnos.length ? s.p.alumnos.map(filaAl).join("") : ""}
+      ${s.p.sinVincular.length ? `<p class="banner full">${s.p.sinVincular.map(n => "«" + esc(n) + "»").join(", ")} sin vincular: vincúlalo en «Nombres sin vincular» para poder marcar su estado.</p>` : ""}
+      ${ayuda}
+      <label class="field full">Contenido trabajado<input id="c_cont" value="${esc(reg.contenido || "")}" maxlength="200" placeholder="Ej.: Unidad 5, pretérito imperfecto"></label>
+      <label class="field full">Observaciones<textarea id="c_obs" rows="3" maxlength="1000">${esc(reg.observaciones || "")}</textarea></label>
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+    </form>`);
+  const sync = () => md.querySelectorAll("[data-al]").forEach(fs => { fs.querySelector("[data-recup]").hidden = fs.querySelector("input[type=radio]:checked").value !== "recuperacion"; });
+  md.querySelectorAll("input[type=radio]").forEach(r => r.onchange = sync); sync();
+  md.querySelector("#fc").onsubmit = ev => {
+    ev.preventDefault();
+    const err = md.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
+    const nuevoPor = {};
+    for (const fs of md.querySelectorAll("[data-al]")) {
+      const id = fs.dataset.al, estado = fs.querySelector("input[type=radio]:checked").value, nota = fs.querySelector("[data-nota]").value.trim();
+      const x = {};
+      if (estado !== "impartida") x.estado = estado;
+      if (estado === "recuperacion") { const o = fs.querySelector("[data-recupera]").value; if (!o) return fail(`${fs.querySelector("legend").textContent}: elige qué clase cancelada recupera.`); x.recuperaDe = o; }
+      if (nota) x.nota = nota;
+      if (porAl[id] && porAl[id].packId) x.packId = porAl[id].packId;
+      if (Object.keys(x).length) nuevoPor[id] = x;
+    }
+    const contenido = md.querySelector("#c_cont").value.trim(), observaciones = md.querySelector("#c_obs").value.trim();
+    const vacio = !Object.keys(nuevoPor).length && !contenido && !observaciones && !reg.participantes;
+    const existe = m.datos.registros.has(eventId);
+    if (vacio && !existe) { cerrarModal(); return; }
+    const datos = vacio ? null : { ...(reg.participantes ? { participantes: reg.participantes } : {}), porAlumno: nuevoPor, contenido, observaciones };
+    guardar([{ coleccion: "registrosClase", id: eventId, nuevo: !existe, datos }], "Estado de la clase", "Clase guardada.");
+  };
+}
+
 /* ================= packs ================= */
 const PLANTILLAS = {
   "spanish-with-irene": [{ id: "24", nombre: "Pack 24", clases: 24 }, { id: "36", nombre: "Pack 36", clases: 36 }],
@@ -790,7 +866,7 @@ function pintarFicha(){
   const clases = (st ? st.consumos : []).slice().reverse();
   const dadas = clases.filter(c => !c.prevista);
   const tabs = [["resumen", "Resumen"], ["academica", "Información académica"], ["packs", "Packs"], ["historial", "Historial"], ["seguimiento", "Seguimiento"], ["notas", "Notas"]];
-  const fila = c => `<li><span class="num">${fechaCorta(c.fecha)}</span><span>${cap(c.modalidad)} · ${c.minutos} min</span>${c.prevista ? '<span class="state st-pausa">Prevista</span>' : c.cuenta ? '<span class="state st-activo">Impartida</span>' : '<span class="state st-propuesta">No cuenta</span>'}</li>`;
+  const fila = c => { const r = modelo().datos.registros.get(c.eventId); return `<li class="clic" data-clase="${esc(c.eventId)}" tabindex="0"><span class="num">${fechaCorta(c.fecha)}</span><span>${cap(c.modalidad)} · ${c.minutos} min${r && r.contenido ? ` · <span class="muted">${esc(r.contenido)}</span>` : ""}${c.nota ? ` · <span class="muted">${esc(c.nota)}</span>` : ""}</span>${etiquetaConsumo(c)}</li>`; };
   let body;
   if (fichaTab === "resumen") body = `
     <dl class="facts">
@@ -822,6 +898,7 @@ function pintarFicha(){
     </aside>`;
   $("#fscrim").onclick = cerrarFicha; $("#f_close").onclick = cerrarFicha;
   const ed = $("#f_edit"); if (ed) ed.onclick = () => formFicha(a);
+  document.querySelectorAll("#drawerRoot [data-clase]").forEach(li => { li.onclick = () => formClase(li.dataset.clase); li.onkeydown = e => { if (e.key === "Enter") formClase(li.dataset.clase); }; });
   document.querySelectorAll("#drawerRoot [data-pk]").forEach(b => b.onclick = () => {
     const pk = b.dataset.id ? packById(b.dataset.id) : null, t = b.dataset.pk;
     if (t === "nuevo") formPack(a, null);
@@ -869,6 +946,7 @@ function render(){
   }
   const ct = v.querySelector("#confirmarTipos"); if (ct) ct.onclick = () => guardar(baseInicial(), "Configuración inicial", "Configuración guardada: academias, tarifas y avisos.");
   v.querySelectorAll("[data-fichapk]").forEach(b => b.onclick = () => abrirFicha(b.dataset.fichapk, "packs"));
+  v.querySelectorAll("[data-clase]").forEach(tr => { tr.onclick = () => formClase(tr.dataset.clase); tr.onkeydown = e => { if (e.key === "Enter") formClase(tr.dataset.clase); }; });
   const pf = v.querySelector("#prefs");
   if (pf) pf.onsubmit = ev => {
     ev.preventDefault();
@@ -909,7 +987,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-26h");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-26i");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -928,7 +1006,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-26h");
+    D = await import("./datos.js?v=2026-11-26i");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
