@@ -261,7 +261,14 @@ body.is-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .stbl td:first-child{font-weight:500;overflow-wrap:anywhere}
 .stbl td.zero{color:var(--ink-3)}
 .stbl tr:last-child td{border-bottom:0}
-.stbl .sub{display:block;font-size:.72rem;color:var(--ink-3)}
+.stats3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stats3 .stat{padding:9px 8px}
+.stats3 .stat .l{font-size:.7rem;line-height:1.25}
+.stats3 .stat.total{background:var(--accent-soft)}
+.stlist{display:flex;flex-direction:column;gap:8px}
+.stlist summary{cursor:pointer;font-size:.84rem;font-weight:600;color:var(--ink-2);padding:6px 0;list-style-position:inside}
+.stlist summary:hover{color:var(--ink)}
+.stlist[open] summary{margin-bottom:6px}
 .seg.sm button{padding:4px 10px;font-size:.78rem}
 .hint{font-size:.78rem;color:var(--ink-2);background:var(--surface-2);border-radius:8px;padding:8px 10px;margin:0;display:flex;flex-direction:column;gap:3px}
 .hint b{font-weight:600;color:var(--ink)}
@@ -819,6 +826,7 @@ try { studentScope = localStorage.getItem(LSKEY + "-st") === "given" ? "given" :
 // Academia elegida: el id de un tipo «Por alumno» o "todas".
 let studentAcademy = "";
 try { studentAcademy = localStorage.getItem(LSKEY + "-ac") || ""; } catch(e){}
+let studentListOpen = false;
 function renderStudents(){
   const el = $("#studentsSummary");
   const flagged = getTypes().filter(isStudentType);
@@ -858,20 +866,22 @@ function renderStudents(){
       </div></div>
     ${flagged.length > 1 ? `<div class="field"><label for="st_ac">Academia</label>
       <select id="st_ac">${flagged.map(t => `<option value="${esc(t.id)}"${t.id === studentAcademy ? " selected" : ""}>${esc(academyName(t))}</option>`).join("")}<option value="todas"${studentAcademy === "todas" ? " selected" : ""}>Todas las academias</option></select></div>` : ""}
-    <div class="stats">
-      <div class="stat"><span class="v">${nInd}</span><span class="l">${nInd === 1 ? "clase individual" : "clases individuales"} · ${hoursFmt(indMin)}</span></div>
-      ${showWs ? `<div class="stat"><span class="v">${nWs}</span><span class="l">${nWs === 1 ? "workshop" : "workshops"} · ${hoursFmt(wsMin)}</span></div>`
-               : `<div class="stat"><span class="v">${rows.length}</span><span class="l">${rows.length === 1 ? "alumno" : "alumnos"}</span></div>`}
+    <div class="stats3">
+      <div class="stat"><span class="v">${nInd}</span><span class="l">Clases individuales</span></div>
+      <div class="stat"><span class="v">${nWs}</span><span class="l">Clases workshop</span></div>
+      <div class="stat total"><span class="v">${nInd + nWs}</span><span class="l">Clases total</span></div>
     </div>
-    ${rows.length ? `<div class="stbl-wrap"><table class="stbl">
+    ${rows.length ? `<details class="stlist" id="st_list"${studentListOpen ? " open" : ""}><summary>Ver alumnos (${rows.length})</summary><div class="stbl-wrap"><table class="stbl">
       <thead><tr><th scope="col">Alumno</th>${showWs
         ? `<th scope="col">Individual</th><th scope="col">Workshop</th>`
         : `<th scope="col">Clases</th>`}</tr></thead>
       <tbody>${rows.map(r => `<tr><td>${esc(r.name)}</td>${showWs
         ? `<td${r.ind ? "" : ` class="zero"`}>${r.ind}</td><td${r.ws ? "" : ` class="zero"`}>${r.ws}</td>`
         : `<td${r.ind ? "" : ` class="zero"`}>${r.ind}</td>`}</tr>`).join("")}</tbody>
-    </table></div>` : `<p class="empty">${studentScope === "given" ? "Todavía no hay clases dadas este mes." : "No hay clases de esta academia este mes."}</p>`}
-    <p class="empty" style="font-size:.76rem">Individual: el título es solo el nombre del alumno. Workshop: el título lleva «workshop» y los nombres separados por comas o «y».</p>`;
+    </table></div>
+    <p class="empty" style="font-size:.76rem">Individual: el título es solo el nombre del alumno. Workshop: el título lleva «workshop» y los nombres separados por comas o «y».</p></details>` : `<p class="empty">${studentScope === "given" ? "Todavía no hay clases dadas este mes." : "No hay clases de esta academia este mes."}</p>`}`;
+  const det = el.querySelector("#st_list");
+  if (det) det.ontoggle = () => { studentListOpen = det.open; };
   const ac = el.querySelector("#st_ac");
   if (ac) ac.onchange = () => {
     studentAcademy = ac.value;
