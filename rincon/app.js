@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-26f";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26f";
+export const VERSION = "2026-11-26g";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins } from "./calculo.js?v=2026-11-26g";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -268,7 +268,7 @@ function vProfeAlumnos(){
   </div>
   <div class="twrap"><table><thead><tr><th>Alumno</th><th>Academia</th><th>Nivel</th><th>Modalidad</th><th>Profesora</th><th>Pack actual</th><th class="n">Realizadas</th><th class="n">Restantes</th><th>Estado</th></tr></thead>
     <tbody>${al.map(a => { const st = m.porAlumno.get(a.id), pk = st && st.actual, prev = (a.clasesPreviasTarifa && a.clasesPreviasTarifa.clases) || 0, dadas = (st ? st.consumos.filter(c => c.cuenta).length : 0) + prev;
-      return `<tr data-ficha="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span><small>${esc(aliasDe(a.id).map(z => "«" + z.texto + "»").join(", ") || "Sin nombre de agenda vinculado")}</small></td>
+      return `<tr data-ficha="${a.id}" tabindex="0"><td><span class="name${resaltado(a.id)}">${esc(nombreCompleto(a))}</span><small>${esc(aliasDe(a.id).map(z => "«" + z.texto + "»").join(", ") || "Sin nombre de agenda vinculado")}</small></td>
       <td>${chip(a.academiaId)}</td><td>${esc(a.nivelInicial || "—")}</td><td>${modalidad(st)}</td><td>Sara</td>
       <td>${a.modoPago === "por_clase" ? '<span class="muted">Clase a clase</span>' : pk ? esc(pk.pack.nombre || "Pack") : '<span class="muted">Sin pack</span>'}</td>
       <td class="n">${pk ? pk.realizadas : dadas}</td><td class="n">${pk ? pk.restantes : "—"}</td>
@@ -369,7 +369,7 @@ function vPacks(){
   const pendientes = conPack.flatMap(x => x.packs.filter(e => e.estado === "pendiente").map(e => ({ x, e })));
   const sinPack = conPack.filter(x => !x.packs.some(e => !e.anulado) || x.sinPack.length);
   const fila = (x, e) => `<button class="packrow" type="button" data-fichapk="${x.alumno.id}">
-      <span><b>${esc(nombreCompleto(x.alumno))}</b><br><small class="muted">${esc(e.pack.nombre || "Pack")} · ${chip(x.alumno.academiaId)}</small></span>
+      <span><b class="name${resaltado(x.alumno.id)}">${esc(nombreCompleto(x.alumno))}</b><br><small class="muted">${esc(e.pack.nombre || "Pack")} · ${chip(x.alumno.academiaId)}</small></span>
       ${ticksPack(e, x.alumno.academiaId)}
       <span class="when muted" style="font-size:.8rem">Compra<br>${e.pack.fechaCompraDesconocida ? "—" : fechaCorta(e.pack.fechaCompra)}</span>
       <span class="rest"${e.estado === "renovar" ? ' style="color:var(--terracota)"' : ["urgente", "terminado"].includes(e.estado) ? ' style="color:var(--urgent)"' : ""}>${e.restantes}<small>${e.estado === "terminado" ? "terminado" : e.estado === "pendiente" ? "sin empezar" : e.restantes === 1 ? "clase restante" : "restantes"}</small></span></button>`;
@@ -390,6 +390,7 @@ function vPreferencias(){
   <form id="prefs" class="fgrid" style="max-width:520px" novalidate>
     <label class="field">Aviso de renovación con<input id="u_ren" type="number" min="1" step="1" value="${u.renovacion}"><span class="muted">clases restantes o menos</span></label>
     <label class="field">Aviso urgente con<input id="u_urg" type="number" min="0" step="1" value="${u.urgente}"><span class="muted">clases restantes o menos</span></label>
+    <label class="field full">Nombre en amarillo cuando queden menos de<input id="u_ama" type="number" min="1" step="1" value="${Number.isInteger(u.resaltar) ? u.resaltar : 5}" style="max-width:140px"><span class="muted">clases en el pack. <span class="name resaltar">Así se verá</span></span></label>
     <p class="err full" id="f_err" hidden></p>
     ${puedeEscribir() ? `<div class="full"><button class="btn primary" type="submit">Guardar</button></div>` : ""}
   </form>
@@ -627,6 +628,15 @@ function ticksPack(e, academiaId, big){
   return `<span class="ticks ${academiaId === "lsi-karmele" ? "lsi" : ""}${["renovar", "urgente"].includes(e.estado) ? " alert" : ""}${big ? " big" : ""}" role="img" aria-label="${e.realizadas} de ${e.disponibles} clases">${h}</span>`;
 }
 const packById = id => (S.rincon.packs || []).find(p => p.id === id);
+/** Fondo amarillo: le quedan menos de N clases (5 por defecto) o el pack ya se terminó sin renovar. */
+const umbralAmarillo = () => { const c = (S.rincon.config || []).find(x => x.id === "general"); return (c && c.umbrales && Number.isInteger(c.umbrales.resaltar)) ? c.umbrales.resaltar : 5; };
+function amarillo(alumnoId){
+  const st = modelo().porAlumno.get(alumnoId);
+  if (!st || st.alumno.modoPago === "por_clase" || st.alumno.estado === "finalizado") return false;
+  if (st.pendienteRenovar) return true;
+  return !!(st.actual && st.actual.estado !== "pendiente" && st.actual.restantes < umbralAmarillo());
+}
+const resaltado = id => amarillo(id) ? " resaltar" : "";
 const sinId = ({ id, actualizadoEn, ...r }) => { void id; void actualizadoEn; return r; };
 
 /** Nuevo pack, renovación o edición. */
@@ -801,7 +811,7 @@ function pintarFicha(){
   else body = `<p class="phase" style="align-self:flex-start">Próximo paso</p><p class="muted">La pestaña «${esc(tabs.find(t => t[0] === fichaTab)[1])}» llega en los siguientes pasos.</p>`;
   $("#drawerRoot").innerHTML = `<div class="scrim" id="fscrim"></div>
     <aside class="drawer" role="dialog" aria-modal="true" aria-label="Ficha de ${esc(nombreCompleto(a))}">
-      <div class="dh"><span class="avatar ${ac.css}">${esc((a.nombre[0] || "") + ((a.apellidos || "")[0] || ""))}</span><div><span class="eyebrow">Ficha de alumno</span><h2>${esc(nombreCompleto(a))}</h2><div style="margin-top:6px">${chip(a.academiaId)}</div></div>
+      <div class="dh"><span class="avatar ${ac.css}">${esc((a.nombre[0] || "") + ((a.apellidos || "")[0] || ""))}</span><div><span class="eyebrow">Ficha de alumno</span><h2><span class="name${resaltado(a.id)}">${esc(nombreCompleto(a))}</span></h2><div style="margin-top:6px">${chip(a.academiaId)}</div></div>
         <div class="dh-actions">${puedeEscribir() ? `<button class="btn sm" type="button" id="f_edit">Editar</button>` : ""}<button class="x" type="button" id="f_close" aria-label="Cerrar ficha"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>
       <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${fichaTab === k}">${l}</button>`).join("")}</div>
       <div class="dbody">${body}</div>
@@ -858,10 +868,11 @@ function render(){
   const pf = v.querySelector("#prefs");
   if (pf) pf.onsubmit = ev => {
     ev.preventDefault();
-    const ren = Number(pf.querySelector("#u_ren").value), urg = Number(pf.querySelector("#u_urg").value), err = pf.querySelector("#f_err");
+    const ren = Number(pf.querySelector("#u_ren").value), urg = Number(pf.querySelector("#u_urg").value), ama = Number(pf.querySelector("#u_ama").value), err = pf.querySelector("#f_err");
+    if (!Number.isInteger(ama) || ama < 1) { err.textContent = "El número para el amarillo tiene que ser 1 o más, por ejemplo 5."; err.hidden = false; return; }
     if (!Number.isInteger(ren) || !Number.isInteger(urg) || ren < 1 || urg < 0 || urg >= ren) { err.textContent = "El aviso urgente tiene que ser menor que el de renovación, por ejemplo 3 y 1."; err.hidden = false; return; }
     const base = baseInicial(), cfg = (S.rincon.config || []).find(c => c.id === "general"), ini = base.find(c => c.coleccion === "config");
-    const datos = { ...(cfg ? sinId(cfg) : ini.datos), umbrales: { renovacion: ren, urgente: urg } };
+    const datos = { ...(cfg ? sinId(cfg) : ini.datos), umbrales: { renovacion: ren, urgente: urg, resaltar: ama } };
     guardar([...base.filter(c => c.coleccion !== "config"), { coleccion: "config", id: "general", nuevo: !cfg, datos }], "Cambiar avisos de renovación", "Avisos guardados.");
   };
   if (fichaAbierta) pintarFicha();
@@ -894,7 +905,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-26f");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-26g");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -913,7 +924,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-26f");
+    D = await import("./datos.js?v=2026-11-26g");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
