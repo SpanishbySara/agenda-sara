@@ -795,7 +795,7 @@ function wireTodos(root){
 let lastCat = "prep";
 /* ---------- alumnos (tipos marcados «Por alumno», p. ej. Clase (Irene)) ---------- */
 // Un tipo cuenta por alumno si lo marcaste así; si nunca se ha marcado ni desmarcado, se activa solo cuando su nombre contiene «Irene».
-const isStudentType = t => !!t && (t.students === true || (t.students === undefined && /irene/i.test(t.label || "")));
+const isStudentType = t => !!t && (t.students === true || (t.students === undefined && /irene|\blsi\b/i.test(t.label || "")));
 const nameKey = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 // «Ana» → individual de Ana. «Workshop Ana, Pedro y Luis» → workshop con esos tres alumnos.
 function parseClass(title){
@@ -813,11 +813,16 @@ function parseClass(title){
 }
 let studentScope = "all";
 try { studentScope = localStorage.getItem(LSKEY + "-st") === "given" ? "given" : "all"; } catch(e){}
+// Academia elegida: el id de un tipo «Por alumno» o "todas".
+let studentAcademy = "";
+try { studentAcademy = localStorage.getItem(LSKEY + "-ac") || ""; } catch(e){}
 function renderStudents(){
   const el = $("#studentsSummary");
   const flagged = getTypes().filter(isStudentType);
   if (!flagged.length) { el.innerHTML = ""; return; }
-  const ids = new Set(flagged.map(t => t.id));
+  if (studentAcademy !== "todas" && !flagged.some(t => t.id === studentAcademy)) studentAcademy = flagged[0].id;
+  const chosenTypes = studentAcademy === "todas" ? flagged : flagged.filter(t => t.id === studentAcademy);
+  const ids = new Set(chosenTypes.map(t => t.id));
   const c = state.cursor, y = c.getFullYear(), mo = c.getMonth();
   const first = key(new Date(y, mo, 1)), last = key(new Date(y, mo + 1, 0));
   const tk = todayKey(), now = new Date(), nowM = now.getHours()*60 + now.getMinutes();
@@ -839,22 +844,33 @@ function renderStudents(){
     });
   });
   const rows = [...people.values()].sort((a, b) => (b.ind + b.ws) - (a.ind + a.ws) || a.name.localeCompare(b.name, "es"));
-  const typeNames = flagged.map(t => t.label).join(", ");
+  // La columna de workshops solo aparece si en esta academia y mes hay alguno (en LSI solo hay individuales).
+  const showWs = nWs > 0;
+  const title = studentAcademy === "todas" ? "Todas las academias" : chosenTypes[0].label;
   el.innerHTML = `
-    <div class="sh"><div><div class="eyebrow">Alumnos del mes</div><h2>${esc(typeNames)}</h2></div>
+    <div class="sh"><div><div class="eyebrow">Alumnos del mes</div><h2>${esc(title)}</h2></div>
       <div class="seg sm" role="group" aria-label="Qué clases contar">
         <button type="button" data-st="all" aria-pressed="${studentScope === "all"}">Todo el mes</button>
         <button type="button" data-st="given" aria-pressed="${studentScope === "given"}">Ya dadas</button>
       </div></div>
+    ${flagged.length > 1 ? `<div class="field"><label for="st_ac">Academia</label>
+      <select id="st_ac">${flagged.map(t => `<option value="${esc(t.id)}"${t.id === studentAcademy ? " selected" : ""}>${esc(t.label)}</option>`).join("")}<option value="todas"${studentAcademy === "todas" ? " selected" : ""}>Todas las academias</option></select></div>` : ""}
     <div class="stats">
-      <div class="stat"><span class="v">${nInd}</span><span class="l">${nInd === 1 ? "clase individual" : "clases individuales"}</span></div>
-      <div class="stat"><span class="v">${nWs}</span><span class="l">${nWs === 1 ? "workshop" : "workshops"} · ${hoursFmt(totalMin)} en total</span></div>
+      <div class="stat"><span class="v">${nInd}</span><span class="l">${nInd === 1 ? "clase individual" : "clases individuales"}${showWs ? "" : ` · ${hoursFmt(totalMin)}`}</span></div>
+      ${showWs ? `<div class="stat"><span class="v">${nWs}</span><span class="l">${nWs === 1 ? "workshop" : "workshops"} · ${hoursFmt(totalMin)} en total</span></div>`
+               : `<div class="stat"><span class="v">${rows.length}</span><span class="l">${rows.length === 1 ? "alumno" : "alumnos"}</span></div>`}
     </div>
     ${rows.length ? `<div class="stbl-wrap"><table class="stbl">
-      <thead><tr><th scope="col">Alumno</th><th scope="col">Indiv.</th><th scope="col">Workshop</th><th scope="col">Horas</th></tr></thead>
-      <tbody>${rows.map(r => `<tr><td>${esc(r.name)}</td><td${r.ind ? "" : ` class="zero"`}>${r.ind}</td><td${r.ws ? "" : ` class="zero"`}>${r.ws}</td><td>${hoursFmt(r.min)}</td></tr>`).join("")}</tbody>
-    </table></div>` : `<p class="empty">${studentScope === "given" ? "Todavía no hay clases dadas este mes." : "No hay clases de este tipo este mes."}</p>`}
+      <thead><tr><th scope="col">Alumno</th><th scope="col">${showWs ? "Indiv." : "Clases"}</th>${showWs ? `<th scope="col">Workshop</th>` : ""}<th scope="col">Horas</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${esc(r.name)}</td><td${r.ind ? "" : ` class="zero"`}>${r.ind}</td>${showWs ? `<td${r.ws ? "" : ` class="zero"`}>${r.ws}</td>` : ""}<td>${hoursFmt(r.min)}</td></tr>`).join("")}</tbody>
+    </table></div>` : `<p class="empty">${studentScope === "given" ? "Todavía no hay clases dadas este mes." : "No hay clases de esta academia este mes."}</p>`}
     <p class="empty" style="font-size:.76rem">Individual: el título es solo el nombre del alumno. Workshop: el título lleva «workshop» y los nombres separados por comas o «y».</p>`;
+  const ac = el.querySelector("#st_ac");
+  if (ac) ac.onchange = () => {
+    studentAcademy = ac.value;
+    try { localStorage.setItem(LSKEY + "-ac", studentAcademy); } catch(e){}
+    renderStudents();
+  };
   el.querySelectorAll("[data-st]").forEach(b => b.onclick = () => {
     studentScope = b.dataset.st;
     try { localStorage.setItem(LSKEY + "-st", studentScope); } catch(e){}
