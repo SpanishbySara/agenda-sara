@@ -293,3 +293,4 @@ details summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
 .check{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:.88rem}
 .check input{width:auto}
 .version{font-size:.72rem;color:var(--muted);padding:0 10px}
+.tabs{scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
