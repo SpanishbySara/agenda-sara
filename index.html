@@ -866,10 +866,10 @@ function renderStudents(){
     ${rows.length ? `<div class="stbl-wrap"><table class="stbl">
       <thead><tr><th scope="col">Alumno</th>${showWs
         ? `<th scope="col">Individual</th><th scope="col">Workshop</th>`
-        : `<th scope="col">Clases</th><th scope="col">Horas</th>`}</tr></thead>
+        : `<th scope="col">Clases</th>`}</tr></thead>
       <tbody>${rows.map(r => `<tr><td>${esc(r.name)}</td>${showWs
-        ? `<td${r.ind ? "" : ` class="zero"`}>${r.ind}${r.ind ? `<span class="sub">${hoursFmt(r.minInd)}</span>` : ""}</td><td${r.ws ? "" : ` class="zero"`}>${r.ws}${r.ws ? `<span class="sub">${hoursFmt(r.minWs)}</span>` : ""}</td>`
-        : `<td${r.ind ? "" : ` class="zero"`}>${r.ind}</td><td>${hoursFmt(r.minInd)}</td>`}</tr>`).join("")}</tbody>
+        ? `<td${r.ind ? "" : ` class="zero"`}>${r.ind}</td><td${r.ws ? "" : ` class="zero"`}>${r.ws}</td>`
+        : `<td${r.ind ? "" : ` class="zero"`}>${r.ind}</td>`}</tr>`).join("")}</tbody>
     </table></div>` : `<p class="empty">${studentScope === "given" ? "Todavía no hay clases dadas este mes." : "No hay clases de esta academia este mes."}</p>`}
     <p class="empty" style="font-size:.76rem">Individual: el título es solo el nombre del alumno. Workshop: el título lleva «workshop» y los nombres separados por comas o «y».</p>`;
   const ac = el.querySelector("#st_ac");
