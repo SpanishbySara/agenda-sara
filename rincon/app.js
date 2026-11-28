@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28a";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28a";
+export const VERSION = "2026-11-28b";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28b";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -855,6 +855,62 @@ function tabPacks(a, st){
       </article>`; }).join("") : `<p class="empty">${a.modoPago === "por_clase" ? "Sin packs." : "Todavía no tiene ningún pack. Créalo con «+ Nuevo pack»."}</p>`}`;
 }
 
+/* ================= fusionar y eliminar fichas ================= */
+/** Cambios para mover todo lo de la ficha «de» a la ficha «a» (o borrarlo si a = null). */
+function cambiosFicha(de, a){
+  const out = [];
+  for (const z of S.rincon.alias || []) {
+    if (z.alumnoId === de.id) out.push({ coleccion: "alias", id: z.id, datos: a ? { ...sinId(z), alumnoId: a.id } : null });
+    else if ((z.alumnoIds || []).includes(de.id)) {
+      if (a) out.push({ coleccion: "alias", id: z.id, datos: { ...sinId(z), alumnoIds: [...new Set(z.alumnoIds.map(x => x === de.id ? a.id : x))] } });
+      else out.push({ coleccion: "alias", id: z.id, datos: null });   // el nombre de pareja vuelve a «Nombres sin vincular» para separarlo de nuevo
+    }
+  }
+  for (const pk of S.rincon.packs || []) if (pk.alumnoId === de.id) {
+    if (a) out.push({ coleccion: "packs", id: pk.id, datos: { ...sinId(pk), alumnoId: a.id } });
+    else { out.push({ coleccion: "packs", id: pk.id, datos: null }); for (const x of S.rincon.ajustesPack || []) if (x.packId === pk.id) out.push({ coleccion: "ajustesPack", id: x.id, datos: null }); }
+  }
+  if (a) for (const x of S.rincon.ajustesPack || []) if (x.alumnoId === de.id) out.push({ coleccion: "ajustesPack", id: x.id, datos: { ...sinId(x), alumnoId: a.id } });
+  for (const r of S.rincon.registrosClase || []) if (r.porAlumno && r.porAlumno[de.id]) {
+    const por = { ...r.porAlumno }; const mio = por[de.id]; delete por[de.id];
+    if (a && !por[a.id]) por[a.id] = mio;
+    out.push({ coleccion: "registrosClase", id: r.id, datos: { ...sinId(r), porAlumno: por } });
+  }
+  for (const x of S.rincon.asignaciones || []) if (x.destino && x.destino.id === de.id) out.push({ coleccion: "asignaciones", id: x.id, datos: null });
+  out.push({ coleccion: "alumnos", id: de.id, datos: null });
+  return out;
+}
+
+function formFusionar(de){
+  const otras = (S.rincon.alumnos || []).filter(x => x.id !== de.id && x.academiaId === de.academiaId).sort((x, y) => nombreCompleto(x).localeCompare(nombreCompleto(y), "es"));
+  if (!otras.length) { flash(`No hay otra ficha de ${acad(de.academiaId).nombre} con la que fusionar.`); return; }
+  const m = modal(`
+    <h2>Fusionar «${esc(nombreCompleto(de))}» con otra ficha</h2>
+    <p class="muted">Úsalo cuando la misma persona tiene dos fichas. Todo lo de esta ficha pasará a la que elijas: sus nombres de la agenda (también los de pareja, como «Colin- Nick»), sus packs y los estados de sus clases. Después, esta ficha desaparece.</p>
+    <form id="fz" class="fgrid" novalidate>
+      <label class="field full">Quedarse con la ficha de<select id="z_a">${otras.map(x => `<option value="${x.id}">${esc(nombreCompleto(x))} · ${esc(aliasDe(x.id).map(z => "«" + z.texto + "»").join(", ") || "sin nombres de agenda")}</option>`).join("")}</select></label>
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Fusionar</button></div>
+    </form>`);
+  m.querySelector("#fz").onsubmit = ev => {
+    ev.preventDefault();
+    const a = otras.find(x => x.id === m.querySelector("#z_a").value);
+    const extra = {};
+    for (const k of ["apellidos", "nivelInicial", "nacionalidad", "lenguaMaterna", "clasesPreviasTarifa"]) if (!a[k] && de[k]) extra[k] = de[k];
+    const cambios = cambiosFicha(de, a);
+    if (Object.keys(extra).length) cambios.push({ coleccion: "alumnos", id: a.id, datos: { ...sinId(a), ...extra } });
+    if (fichaAbierta === de.id) fichaAbierta = a.id;
+    guardar(cambios, `Fusionar ${nombreCompleto(de)} con ${nombreCompleto(a)}`, `Fichas fusionadas: ahora todo está en ${nombreCompleto(a)}.`);
+  };
+}
+
+function eliminarFicha(de){
+  const nPacks = (S.rincon.packs || []).filter(x => x.alumnoId === de.id).length;
+  const pareja = (S.rincon.alias || []).filter(z => (z.alumnoIds || []).includes(de.id));
+  confirmar("Eliminar ficha", `Se borrará la ficha de <b>${esc(nombreCompleto(de))}</b>${nPacks ? ` con ${plural(nPacks, "pack", "packs")}` : ""}. Sus nombres de la agenda volverán a «Nombres sin vincular»${pareja.length ? `, también ${pareja.map(z => "«" + esc(z.texto) + "»").join(", ")}, que tendrás que separar de nuevo` : ""}. La agenda no cambia. No se puede deshacer.<br><br>Si es la misma persona que otra ficha, mejor usa <b>Fusionar</b>.`, "Eliminar ficha",
+    motivo => { cerrarFicha(); guardar(cambiosFicha(de, null), motivo || "Eliminar ficha", `Ficha de ${nombreCompleto(de)} eliminada.`); }, true);
+}
+
 /* ================= ficha del alumno ================= */
 let fichaAbierta = null, fichaTab = "resumen";
 function abrirFicha(id, tab = "resumen"){ fichaAbierta = id; fichaTab = tab; pintarFicha(); }
@@ -885,7 +941,8 @@ function pintarFicha(){
       ${aliasDe(a.id).length ? `<ul class="hist">${aliasDe(a.id).map(z => `<li><span>«${esc(z.texto)}»</span><span class="muted">${esc(acad(z.academiaId).corto)}</span>${puedeEscribir() ? `<button class="link" type="button" data-unalias="${esc(z.id)}">Desvincular</button>` : "<span></span>"}</li>`).join("")}</ul>` : `<p class="empty">Ningún nombre de la agenda está vinculado a esta ficha todavía.</p>`}
     </section>
     <section class="section"><header><h3>Últimas clases</h3><span class="muted" style="font-size:.8rem">${plural(dadas.length, "clase dada", "clases dadas")} en la agenda${a.clasesPreviasTarifa && a.clasesPreviasTarifa.clases ? ` + ${a.clasesPreviasTarifa.clases} anteriores` : ""}</span></header>
-      ${clases.length ? `<ul class="hist">${clases.slice(0, 8).map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`}</section>`;
+      ${clases.length ? `<ul class="hist">${clases.slice(0, 8).map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`}</section>
+    ${puedeEscribir() ? `<div class="packacts gestion"><button class="link" type="button" id="f_fusion">Fusionar con otra ficha</button><button class="link danger-l" type="button" id="f_borrar">Eliminar ficha</button></div>` : ""}`;
   else if (fichaTab === "packs") body = tabPacks(a, st);
   else if (fichaTab === "historial") body = clases.length ? `<ul class="hist">${clases.map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`;
   else body = `<p class="phase" style="align-self:flex-start">Próximo paso</p><p class="muted">La pestaña «${esc(tabs.find(t => t[0] === fichaTab)[1])}» llega en los siguientes pasos.</p>`;
@@ -900,6 +957,8 @@ function pintarFicha(){
   if (scrollFicha) $("#drawerRoot .dbody").scrollTop = scrollFicha;
   $("#fscrim").onclick = cerrarFicha; $("#f_close").onclick = cerrarFicha;
   const ed = $("#f_edit"); if (ed) ed.onclick = () => formFicha(a);
+  const fu = $("#f_fusion"); if (fu) fu.onclick = () => formFusionar(a);
+  const fb = $("#f_borrar"); if (fb) fb.onclick = () => eliminarFicha(a);
   document.querySelectorAll("#drawerRoot [data-clase]").forEach(li => { li.onclick = () => formClase(li.dataset.clase); li.onkeydown = e => { if (e.key === "Enter") formClase(li.dataset.clase); }; });
   document.querySelectorAll("#drawerRoot [data-pk]").forEach(b => b.onclick = () => {
     const pk = b.dataset.id ? packById(b.dataset.id) : null, t = b.dataset.pk;
@@ -1007,7 +1066,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28a");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28b");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1026,7 +1085,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28a");
+    D = await import("./datos.js?v=2026-11-28b");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
