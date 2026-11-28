@@ -334,6 +334,22 @@ test("Irene: clases anteriores sin fecha → se suman antes de la primera clase 
   assert.equal(f.lineas[2].importe, 19, "la del 5 nov es la 13.ª");
 });
 
+test("Irene: un pack anterior y las clases ya gastadas cuentan solas para la tarifa (sin duplicar el número manual)", () => {
+  const base = { alias: { c: [IRENE, "Chris", { tipo: "alumno", alumnoId: "chris" }] }, items: [ev("2026-11-02", "Chris")] };
+  // solo pack anterior de 24, sin número manual → la primera clase de la agenda es la 25.ª
+  let d = datos({ ...base, alumnos: [al("chris", "Chris")], packs: [pack("h", "chris", 24, "2000-01-01", { historico: true }), pack("p", "chris", 36, "2026-11-01")] });
+  let r = calcular(d, AHORA);
+  assert.equal(r.porAlumno.get("chris").consumos[0].ordinalTarifa, 25);
+  assert.equal(factura(r, d, IRENE, "2026-11").lineas[0].importe, 19);
+  // pack actual con 4 ya gastadas, sin pack anterior → 5.ª
+  d = datos({ ...base, alumnos: [al("chris", "Chris")], packs: [pack("p", "chris", 36, "2026-11-01", { consumidasPrevias: { clases: 4 } })] });
+  assert.equal(calcular(d, AHORA).porAlumno.get("chris").consumos[0].ordinalTarifa, 5);
+  // pack anterior (24) + número manual 24 (casilla «Sumar») + 4 ya gastadas → 28, no 52
+  d = datos({ ...base, alumnos: [al("chris", "Chris", IRENE, { clasesPreviasTarifa: { clases: 24 } })],
+    packs: [pack("h", "chris", 24, "2000-01-01", { historico: true }), pack("p", "chris", 36, "2026-11-01", { consumidasPrevias: { clases: 4 } })] });
+  assert.equal(calcular(d, AHORA).porAlumno.get("chris").previasTarifa, 28);
+});
+
 test("Irene: las clases previas a la agenda cuentan para el tramo", () => {
   const d = datos({ alumnos: [al("ana", "Ana", IRENE, { clasesPreviasTarifa: { clases: 30, hasta: "2026-10-31" } })],
     alias: { a: [IRENE, "Ana", { tipo: "alumno", alumnoId: "ana" }] }, items: [ev("2026-11-02", "Ana")] });

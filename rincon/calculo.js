@@ -226,7 +226,11 @@ export function calcular(datos, ahora = new Date()){
     const pendienteRenovar = al.modoPago !== "por_clase" && !!ultimo && ultimo.estado === "terminado" && !ultimo.pack.noRenueva;
 
     // Contador de tarifa: acumulado de toda la historia del alumno (no se reinicia con los packs)
-    const prev = al.clasesPreviasTarifa && Number.isInteger(al.clasesPreviasTarifa.clases) ? al.clasesPreviasTarifa : { clases: 0, hasta: null };
+    // Clases dadas antes de la agenda: las de los packs anteriores y las ya gastadas de cada pack cuentan solas.
+    // Si además se escribió un número a mano, se usa el mayor de los dos (nunca se suman dos veces).
+    const manual = al.clasesPreviasTarifa && Number.isInteger(al.clasesPreviasTarifa.clases) ? al.clasesPreviasTarifa : null;
+    const auto = est.filter(e => e.historico).reduce((t, e) => t + e.disponibles, 0) + est.filter(e => !e.anulado).reduce((t, e) => t + e.previas, 0);
+    const prev = { clases: Math.max(manual ? manual.clases : 0, auto), hasta: manual ? manual.hasta || null : null };
     let n = prev.clases;
     for (const c of lista) {
       if (!c.cuenta) continue;
@@ -234,7 +238,7 @@ export function calcular(datos, ahora = new Date()){
       c.ordinalTarifa = ++n;
     }
 
-    porAlumno.set(al.id, { alumno: al, consumos: lista, packs: est, actual, pendienteRenovar, sueltas, sinPack, cubiertas, antesDePacks, totalTarifa: n });
+    porAlumno.set(al.id, { alumno: al, consumos: lista, packs: est, actual, pendienteRenovar, sueltas, sinPack, cubiertas, antesDePacks, totalTarifa: n, previasTarifa: prev.clases, previasAuto: auto });
   }
 
   return { eventos, consumos, porAlumno, sinVincular: [...sinVincular.values()], avisos, umbral };

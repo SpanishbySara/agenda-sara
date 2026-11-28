@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28g";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28g";
+export const VERSION = "2026-11-28i";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28i";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -150,15 +150,15 @@ function avisoBase(){
   return "";
 }
 
-function chartMeses(){
-  const m = modelo(), hoyMes = mesKey(new Date());
-  const meses = Array.from({ length: 6 }, (_, i) => sumarMes(hoyMes, i - 5));
+function chartMeses(fin = mesKey(new Date()), n = 6){
+  const m = modelo(), hoyMes = fin;
+  const meses = Array.from({ length: n }, (_, i) => sumarMes(hoyMes, i - (n - 1)));
   const cuenta = (mes, ac) => m.sesiones.filter(s => s.pasada && s.academiaId === ac && s.ev.date.slice(0, 7) === mes).length;
   const lsi = meses.map(x => acFilter === "spanish-with-irene" ? 0 : cuenta(x, "lsi-karmele"));
   const ire = meses.map(x => acFilter === "lsi-karmele" ? 0 : cuenta(x, "spanish-with-irene"));
   const max = Math.max(10, ...meses.map((_, i) => lsi[i] + ire[i]));
   const paso = max <= 20 ? 5 : max <= 60 ? 20 : 50, top = Math.ceil(max / paso) * paso;
-  const W = 560, H = 210, L = 34, B = 26, T = 18, bw = 46, step = (W - L - 10) / meses.length;
+  const W = 560, H = 210, L = 34, B = 26, T = 18, step = (W - L - 10) / meses.length, bw = Math.min(46, step * 0.7);
   const y = v => H - B - (v / top) * (H - B - T);
   let g = "";
   for (let v = 0; v <= top; v += paso) g += `<line x1="${L}" x2="${W - 6}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line-soft)"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
@@ -167,7 +167,7 @@ function chartMeses(){
     if (l) g += `<rect x="${x}" y="${y(l)}" width="${bw}" height="${y(0) - y(l)}" fill="var(--oliva)" rx="2"/>`;
     if (r) g += `<rect x="${x}" y="${y(l + r)}" width="${bw}" height="${y(l) - y(l + r)}" fill="var(--burdeos)" rx="2"/>`;
     g += `<text x="${x + bw / 2}" y="${y(l + r) - 6}" text-anchor="middle" style="fill:var(--ink);font-weight:600">${l + r}</text>`;
-    g += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle"${i === 5 ? ' style="fill:var(--ink);font-weight:600"' : ""}>${MN[Number(mes.slice(5)) - 1].slice(0, 3)}</text>`;
+    g += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle"${i === n - 1 ? ' style="fill:var(--ink);font-weight:600"' : ""}>${MN[Number(mes.slice(5)) - 1].slice(0, 3)}</text>`;
   });
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Clases impartidas por mes en los últimos seis meses">${g}</svg>`;
 }
@@ -254,7 +254,7 @@ let fAl = { q: "", nivel: "", estado: "", pago: "" };
 function vProfeAlumnos(){
   const m = modelo();
   const todos = misAlumnos().filter(a => pasaFiltro(a.academiaId));
-  const al = todos.filter(a => (!fAl.q || nombreCompleto(a).toLowerCase().includes(fAl.q.toLowerCase())) && (!fAl.nivel || a.nivelInicial === fAl.nivel)
+  const al = todos.filter(a => (!fAl.q || nombreCompleto(a).toLowerCase().includes(fAl.q.toLowerCase())) && (!fAl.nivel || nivelActual(a) === fAl.nivel)
     && (!fAl.estado || a.estado === fAl.estado) && (!fAl.pago || a.modoPago === fAl.pago))
     .sort((a, b) => nombreCompleto(a).localeCompare(nombreCompleto(b), "es"));
   const modalidad = st => { const ult = st && [...st.consumos].reverse().find(c => !c.prevista); return ult ? cap(ult.modalidad) : "—"; };
@@ -270,9 +270,9 @@ function vProfeAlumnos(){
     <select id="fpago" aria-label="Forma de pago">${opt("pago", [["", "Pack y clase a clase"], ["pack", "Con pack"], ["por_clase", "Clase a clase"]])}</select>
   </div>
   <div class="twrap"><table><thead><tr><th>Alumno</th><th>Academia</th><th>Nivel</th><th>Modalidad</th><th>Profesora</th><th>Pack actual</th><th class="n">Realizadas</th><th class="n">Restantes</th><th>Estado</th></tr></thead>
-    <tbody>${al.map(a => { const st = m.porAlumno.get(a.id), pk = st && st.actual, prev = (a.clasesPreviasTarifa && a.clasesPreviasTarifa.clases) || 0, dadas = (st ? st.consumos.filter(c => c.cuenta).length : 0) + prev;
+    <tbody>${al.map(a => { const st = m.porAlumno.get(a.id), pk = st && st.actual, prev = st ? st.previasTarifa : 0, dadas = (st ? st.consumos.filter(c => c.cuenta).length : 0) + prev;
       return `<tr data-ficha="${a.id}" tabindex="0"><td><span class="name${resaltado(a.id)}">${esc(nombreCompleto(a))}</span><small>${esc(aliasDe(a.id).map(z => "«" + z.texto + "»").join(", ") || "Sin nombre de agenda vinculado")}</small></td>
-      <td>${chip(a.academiaId)}</td><td>${esc(a.nivelInicial || "—")}</td><td>${modalidad(st)}</td><td>Sara</td>
+      <td>${chip(a.academiaId)}</td><td>${esc(nivelActual(a) || "—")}</td><td>${modalidad(st)}</td><td>Sara</td>
       <td>${a.modoPago === "por_clase" ? '<span class="muted">Clase a clase</span>' : pk ? esc(pk.pack.nombre || "Pack") : '<span class="muted">Sin pack</span>'}</td>
       <td class="n">${pk ? pk.realizadas : dadas}</td><td class="n">${pk ? pk.restantes : "—"}</td>
       <td><span class="state st-${a.estado === "activo" ? "activo" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado)}</span></td></tr>`; }).join("")}</tbody></table>
@@ -456,9 +456,67 @@ function descargarCSV(){
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+let fSeg = "todos";
+function vSeguimiento(){
+  const hoy = dayKey(new Date()), en30 = dayKey(new Date(Date.now() + 30 * 864e5));
+  const filas = misAlumnos().filter(a => pasaFiltro(a.academiaId) && a.estado !== "finalizado").map(a => {
+    const evs = evaluacionesDe(a.id), pr = proximaRevision(a), obj = a.objetivos || [];
+    const necesita = (pr && pr < hoy) || !evs.length;
+    return { a, evs, pr, obj, necesita, pronto: pr && pr >= hoy && pr <= en30 };
+  }).filter(x => fSeg === "todos" || (fSeg === "revisar" && x.necesita) || (fSeg === "pronto" && x.pronto))
+    .sort((x, y) => (y.necesita - x.necesita) || ((x.pr || "9") < (y.pr || "9") ? -1 : (x.pr || "9") > (y.pr || "9") ? 1 : nombreCompleto(x.a).localeCompare(nombreCompleto(y.a), "es")));
+  return `${aviso()}
+  ${head("Mi espacio de profe", "Seguimiento académico", "Nivel, evaluaciones y objetivos de tus alumnos. Pulsa uno para abrir su seguimiento.", acSeg(), "var(--burdeos)")}
+  <div class="tools"><div class="seg" role="group" aria-label="Mostrar">${[["todos", "Todos"], ["revisar", "Necesitan revisión"], ["pronto", "Revisión en 30 días"]].map(([k, l]) => `<button type="button" data-seg="${k}" aria-pressed="${fSeg === k}">${l}</button>`).join("")}</div></div>
+  ${filas.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Academia</th><th>Nivel inicial</th><th>Nivel actual</th><th>Última evaluación</th><th>Próxima revisión</th><th>Objetivos</th></tr></thead>
+    <tbody>${filas.map(x => `<tr data-seguim="${x.a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(x.a))}</span></td><td>${chip(x.a.academiaId)}</td><td>${esc(x.a.nivelInicial || "—")}</td><td><b>${esc(nivelActual(x.a) || "—")}</b></td>
+      <td>${x.evs[0] ? fechaCorta(x.evs[0].fecha) + " " + x.evs[0].fecha.slice(0, 4) : '<span class="muted">Sin evaluar</span>'}</td>
+      <td${x.pr && x.pr < hoy ? ' class="vencida"' : ""}>${x.pr ? fechaCorta(x.pr) + (x.pr < hoy ? " · vencida" : "") : "—"}</td>
+      <td>${x.obj.length ? `${x.obj.filter(o => o.estado === "alcanzado").length}/${x.obj.length}` : "—"}</td></tr>`).join("")}</tbody></table></div>`
+    : `<p class="empty">${fSeg === "todos" ? "Todavía no hay fichas." : "Ningún alumno en esta lista."}</p>`}
+  <p class="note">«Necesitan revisión»: alumnos sin ninguna evaluación o con la próxima revisión vencida.</p>`;
+}
+
+let mesAct = mesKey(new Date());
+function vActividad(){
+  const m = modelo(), enMes = f => f.slice(0, 7) === mesAct;
+  const ses = m.sesiones.filter(s => s.pasada && enMes(s.ev.date) && pasaFiltro(s.academiaId));
+  const cons = m.consumos.filter(c => enMes(c.fecha) && pasaFiltro(c.academiaId) && !c.prevista);
+  // una sesión cuenta como impartida salvo que todos sus alumnos la hayan cancelado
+  const dadas = ses.filter(s => { const cs = cons.filter(c => c.eventId === s.ev.id); return !cs.length || cs.some(c => c.estado !== "cancelada" && c.estado !== "cancelada_cuenta"); });
+  const minutos = dadas.reduce((t, s) => t + duracion(s.ev), 0);
+  const atendidos = new Set(cons.filter(c => c.cuenta).map(c => c.alumnoId));
+  const canceladas = cons.filter(c => c.estado === "cancelada" || c.estado === "cancelada_cuenta").length;
+  const porAc = ac => dadas.filter(s => s.academiaId === ac).length;
+  const ind = dadas.filter(s => s.p.modalidad === "individual").length, par = dadas.filter(s => s.p.modalidad !== "individual").length;
+  const mios = new Set(misAlumnos().filter(a => pasaFiltro(a.academiaId)).map(a => a.id));
+  let terminados = 0;
+  for (const [id, st] of m.porAlumno) if (mios.has(id)) for (const e of st.packs) if (e.estado === "terminado" && e.asignadas.length && enMes(e.asignadas[e.asignadas.length - 1].fecha)) terminados++;
+  const renov = (S.rincon.packs || []).filter(p => mios.has(p.alumnoId) && p.renovacionDe && !p.historico && enMes(p.fechaCompraDesconocida ? dayKey(new Date(p.creadoEn || 0)) : p.fechaCompra)).length;
+  return `${aviso()}
+  ${head("Mi espacio de profe", "Mi actividad docente", "Tus clases de LSI e Irene del mes elegido. Las clases canceladas por todos sus alumnos no cuentan como impartidas.", acSeg(), "var(--burdeos)")}
+  <div class="tools"><div class="monthnav"><button class="iconbtn" type="button" data-mesa="-1" aria-label="Mes anterior">${ic("left")}</button><b>${cap(mesNombre(mesAct))}</b><button class="iconbtn" type="button" data-mesa="1" aria-label="Mes siguiente">${ic("right")}</button></div></div>
+  <div class="ledger">
+    <div><span class="v">${dadas.length}</span><span class="l">Clases impartidas</span></div>
+    <div><span class="v">${horas(minutos)}</span><span class="l">Horas de clase</span></div>
+    <div><span class="v">${atendidos.size}</span><span class="l">Alumnos atendidos</span></div>
+    <div><span class="v">${ind}</span><span class="l">Individuales</span></div>
+    <div><span class="v">${par}</span><span class="l">En pareja (workshops)</span></div>
+    <div><span class="v">${canceladas}</span><span class="l">Cancelaciones</span></div>
+  </div>
+  <div class="cols">
+    <section class="section chart"><header><h2>Evolución de los últimos 12 meses</h2><div class="legend">${acFilter !== "spanish-with-irene" ? '<span><i style="background:var(--oliva)"></i>LSI</span>' : ""}${acFilter !== "lsi-karmele" ? '<span><i style="background:var(--burdeos)"></i>Irene</span>' : ""}</div></header>${chartMeses(mesAct, 12)}</section>
+    <section class="section"><header><h2>En ${esc(mesNombre(mesAct))}</h2></header>
+      <ul class="alerts">
+        ${acFilter !== "lsi-karmele" ? `<li><span class="dot" style="background:var(--burdeos)"></span><div><b>${porAc("spanish-with-irene")} clases</b><small>Spanish with Irene</small></div><span></span></li>` : ""}
+        ${acFilter !== "spanish-with-irene" ? `<li><span class="dot" style="background:var(--oliva)"></span><div><b>${porAc("lsi-karmele")} clases</b><small>LSI Karmele</small></div><span></span></li>` : ""}
+        <li><span class="dot urgent"></span><div><b>${plural(terminados, "pack terminado", "packs terminados")}</b><small>Su última clase fue este mes</small></div><span></span></li>
+        <li><span class="dot info"></span><div><b>${plural(renov, "renovación", "renovaciones")}</b><small>Packs renovados este mes</small></div><span></span></li>
+      </ul></section>
+  </div>`;
+}
+
 const PEND = {
-  "profe-seguimiento": ["Mi espacio de profe", "Seguimiento académico", "Nivel, evaluaciones, destrezas, objetivos y próxima revisión de cada alumno."],
-  "profe-actividad": ["Mi espacio de profe", "Mi actividad docente", "Clases, horas, alumnos atendidos, packs terminados y renovaciones por mes."],
   "coord-resumen": ["Jefa de estudios", "Resumen de coordinación", "Cifras de la academia, alertas y carga del profesorado."],
   "coord-alumnado": ["Jefa de estudios", "Alumnado", "Todo el alumnado de Spanish with Irene, también el de otros profesores."],
   "coord-matching": ["Jefa de estudios", "Matching y agrupaciones", "Propuestas de parejas y grupos que solo se crean si las apruebas."],
@@ -860,13 +918,13 @@ function formPackAnterior(alumno){
       <label class="field" id="h_nombre_box" hidden>Nombre del pack<input id="h_nombre" maxlength="40" placeholder="Ej.: Pack 12"></label>
       <label class="field">Periodo (opcional)<input id="h_periodo" maxlength="40" placeholder="Ej.: 6 meses · ene–jun 2025"></label>
       <label class="field">¿Cuántos packs así? <input id="h_n" type="number" min="1" max="10" step="1" value="1"></label>
-      ${irene ? `<label class="check full"><input type="checkbox" id="h_sumar" checked> <span>Sumar estas clases a «Clases anteriormente dadas» (para cobrar 19/23 €): ahora ${prevActual} → <b id="h_total"></b></span></label>` : ""}
+      ${irene ? `<p class="muted full" style="font-size:.85rem">Sus clases cuentan solas como «clases anteriormente dadas» para la tarifa: a partir de la 13.ª cobras 19/23 €.</p>` : ""}
       <p class="err full" id="f_err" hidden></p>
       <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
     </form>`);
   const tipo = m.querySelector("#h_tipo"), cl = m.querySelector("#h_clases"), nn = m.querySelector("#h_n");
   const upd = () => { const p = plant.find(x => x.id === tipo.value); m.querySelector("#h_nombre_box").hidden = !!p;
-    const t = m.querySelector("#h_total"); if (t) t.textContent = prevActual + (Number(cl.value) || 0) * (Number(nn.value) || 0); };
+    void prevActual; };
   const per = m.querySelector("#h_periodo"); let perAuto = true; per.oninput = () => { perAuto = false; };
   const ponPeriodo = () => { const p = plant.find(x => x.id === tipo.value); if (perAuto) per.value = p && p.meses ? p.meses + " meses" : ""; };
   tipo.onchange = () => { const p = plant.find(x => x.id === tipo.value); if (p) cl.value = p.clases; ponPeriodo(); upd(); };
@@ -884,9 +942,6 @@ function formPackAnterior(alumno){
     for (let i = 0; i < n; i++) cambios.push({ coleccion: "packs", id: D.nuevoId("packs", "pk"), nuevo: true, datos: { alumnoId: alumno.id, nombre, categoria: p && p.categoria || null,
       clasesContratadas: clases, fechaCompra: "2000-01-01", fechaCompraDesconocida: true, historico: true, periodo, precio: null, consumidasPrevias: null,
       noRenueva: null, estadoManual: null, renovacionDe: null, creadoEn: Date.now() - (n - i) } });
-    const sumar = m.querySelector("#h_sumar");
-    if (sumar && sumar.checked) cambios.push({ coleccion: "alumnos", id: alumno.id, datos: { ...sinId(alumno), clasesPreviasTarifa: { clases: prevActual + clases * n } },
-      resumen: { clasesPreviasTarifa: [prevActual, prevActual + clases * n] } });
     guardar(cambios, "Pack anterior", n === 1 ? "Pack anterior guardado." : `${n} packs anteriores guardados.`);
   };
 }
@@ -1020,11 +1075,137 @@ function eliminarFicha(de){
     motivo => { cerrarFicha(); guardar(cambiosFicha(de, null), motivo || "Eliminar ficha", `Ficha de ${nombreCompleto(de)} eliminada.`); }, true);
 }
 
+/* ================= información académica, seguimiento y notas ================= */
+const DESTREZAS = { CL: "Comprensión lectora", CA: "Comprensión auditiva", EE: "Expresión escrita", EO: "Expresión oral", IO: "Interacción oral" };
+const TIPOS_EVAL = { inicial: "Prueba inicial", revision: "Revisión", prueba_nivel: "Prueba de nivel", examen: "Examen", dele: "DELE" };
+const evaluacionesDe = id => (S.rincon.evaluaciones || []).filter(e => e.alumnoId === id).sort((a, b) => a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0);
+/** Nivel actual = el de la evaluación más reciente con nivel; si no hay, el inicial. */
+const nivelActual = a => (evaluacionesDe(a.id).find(e => e.nivel) || {}).nivel || a.nivelInicial || "";
+const proximaRevision = a => (evaluacionesDe(a.id).find(e => e.proximaRevision) || {}).proximaRevision || "";
+const notasDe = id => (S.rincon.observaciones || []).filter(o => o.alumnoId === id && o.ambito !== "coordinacion").sort((a, b) => (b.fecha + (b.creadoEn || 0)) < (a.fecha + (a.creadoEn || 0)) ? -1 : 1);
+const marcarSucia = root => root.querySelectorAll("input, textarea, select").forEach(el => el.addEventListener("input", () => { fichaSucia = true; }));
+
+function tabAcademica(a){
+  const obj = a.objetivos || [], dm = new Set(a.destrezasMejorar || []), ro = !puedeEscribir() ? " disabled" : "";
+  return `<form id="acad" class="fgrid" novalidate>
+    <fieldset class="field full"><legend>Objetivos de aprendizaje <span class="muted">· marca los alcanzados</span></legend>
+      <ul class="objetivos" id="objs">${obj.map(o => `<li><input type="checkbox" data-hecho${o.estado === "alcanzado" ? " checked" : ""}${ro} aria-label="Alcanzado"><input data-texto value="${esc(o.texto)}" maxlength="140"${ro}><button type="button" class="iconbtn" data-quitar aria-label="Quitar objetivo"${ro}>✕</button></li>`).join("")}</ul>
+      ${ro ? "" : `<button type="button" class="link" id="addObj" style="align-self:flex-start">+ Añadir objetivo</button>`}</fieldset>
+    <fieldset class="field full"><legend>Destrezas que necesita mejorar</legend><div class="estados">${Object.entries(DESTREZAS).map(([k, l]) => `<label class="check"><input type="checkbox" value="${k}" data-destreza${dm.has(k) ? " checked" : ""}${ro}> ${l}</label>`).join("")}</div></fieldset>
+    <label class="field full">Necesidades específicas<textarea id="ac_nec" rows="2" maxlength="600"${ro}>${esc(a.necesidades || "")}</textarea></label>
+    <label class="field full">Dificultades detectadas<textarea id="ac_dif" rows="2" maxlength="600"${ro}>${esc(a.dificultades || "")}</textarea></label>
+    <label class="field full">Intereses personales para las clases<textarea id="ac_int" rows="2" maxlength="600"${ro}>${esc(a.intereses || "")}</textarea></label>
+    <label class="field full">Observaciones de la profesora<textarea id="ac_obs" rows="3" maxlength="1500"${ro}>${esc(a.observacionesProfe || "")}</textarea></label>
+    <p class="err full" id="f_err" hidden></p>
+    ${ro ? "" : `<div class="mfoot full"><button type="submit" class="btn primary">Guardar</button></div>`}
+  </form>`;
+}
+
+function tabSeguimiento(a){
+  const evs = evaluacionesDe(a.id), obj = a.objetivos || [], pr = proximaRevision(a), hoy = dayKey(new Date());
+  const alc = obj.filter(o => o.estado === "alcanzado"), pen = obj.filter(o => o.estado !== "alcanzado");
+  const ult = evs.find(e => e.destrezas && Object.keys(e.destrezas).length);
+  return `
+    <dl class="facts">
+      <div><dt>Nivel inicial</dt><dd>${esc(a.nivelInicial || "—")}</dd></div><div><dt>Nivel actual</dt><dd>${esc(nivelActual(a) || "—")}</dd></div>
+      <div><dt>Próxima revisión</dt><dd${pr && pr < hoy ? ' class="vencida"' : ""}>${pr ? fechaCorta(pr) + " " + pr.slice(0, 4) + (pr < hoy ? " · vencida" : "") : "—"}</dd></div>
+      <div><dt>Objetivos</dt><dd>${alc.length} alcanzados · ${pen.length} pendientes</dd></div>
+    </dl>
+    ${ult ? `<section class="section"><header><h3>Destrezas</h3><span class="muted" style="font-size:.8rem">Evaluación del ${fechaCorta(ult.fecha)}</span></header>
+      <ul class="destrezas">${Object.entries(DESTREZAS).map(([k, l]) => { const n = ult.destrezas[k]; const i = NIVELES.indexOf(n);
+        return `<li><span>${l}</span><span class="escala">${NIVELES.map((x, j) => `<i class="${j <= i ? "on" : ""}">${x}</i>`).join("")}</span></li>`; }).join("")}</ul></section>` : ""}
+    ${obj.length ? `<section class="section"><header><h3>Objetivos</h3><button class="link" type="button" data-tab="academica">Editar</button></header><ul class="hist">${[...pen, ...alc].map(o => `<li><span>${o.estado === "alcanzado" ? "✓" : "○"}</span><span>${esc(o.texto)}</span><span class="muted">${o.estado === "alcanzado" ? "Alcanzado" : "Pendiente"}</span></li>`).join("")}</ul></section>` : ""}
+    <section class="section"><header><h3>Evaluaciones</h3>${puedeEscribir() ? `<button class="btn sm" type="button" id="nuevaEval">+ Nueva evaluación</button>` : ""}</header>
+      ${evs.length ? `<ul class="evals">${evs.map(e => `<li><div><b>${fechaCorta(e.fecha)} ${e.fecha.slice(0, 4)} · ${esc(TIPOS_EVAL[e.tipo] || e.tipo)}</b>${e.nivel ? ` <span class="pill ok">${esc(e.nivel)}</span>` : ""}
+          <small>${[e.destrezas && Object.keys(e.destrezas).length ? Object.entries(e.destrezas).map(([k, v]) => k + " " + v).join(" · ") : "", e.unidades ? "Unidades: " + esc(e.unidades) : "", e.proximaRevision ? "Próxima revisión: " + fechaCorta(e.proximaRevision) : ""].filter(Boolean).join("<br>")}</small>
+          ${e.comentario ? `<p>${esc(e.comentario)}</p>` : ""}</div>${puedeEscribir() ? `<span class="packacts"><button class="link" type="button" data-editeval="${esc(e.id)}">Editar</button><button class="link danger-l" type="button" data-borraeval="${esc(e.id)}">Eliminar</button></span>` : ""}</li>`).join("")}</ul>`
+        : `<p class="empty">Todavía no hay evaluaciones. El nivel actual es el inicial hasta que registres una.</p>`}</section>`;
+}
+
+function formEvaluacion(a, ev){
+  const v = ev || { fecha: dayKey(new Date()), tipo: "revision", nivel: nivelActual(a), destrezas: {}, unidades: "", comentario: "", proximaRevision: "" };
+  const m = modal(`<h2>${ev ? "Editar evaluación" : "Nueva evaluación"} · ${esc(nombreCompleto(a))}</h2>
+    <form id="fe" class="fgrid" novalidate>
+      <label class="field">Fecha<input id="e_fecha" type="date" value="${esc(v.fecha)}"></label>
+      <label class="field">Tipo<select id="e_tipo">${Object.entries(TIPOS_EVAL).map(([k, l]) => `<option value="${k}"${k === v.tipo ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="field">Nivel general<select id="e_nivel"><option value="">Sin indicar</option>${NIVELES.map(n => `<option${n === v.nivel ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label class="field">Próxima revisión<input id="e_prox" type="date" value="${esc(v.proximaRevision || "")}"></label>
+      <fieldset class="field full"><legend>Nivel por destreza</legend><div class="destgrid">${Object.entries(DESTREZAS).map(([k, l]) => `<label class="field">${l}<select data-dest="${k}"><option value="">—</option>${NIVELES.map(n => `<option${(v.destrezas || {})[k] === n ? " selected" : ""}>${n}</option>`).join("")}</select></label>`).join("")}</div></fieldset>
+      <label class="field full">Unidades completadas<input id="e_unid" value="${esc(v.unidades || "")}" maxlength="140" placeholder="Ej.: U1–U4"></label>
+      <label class="field full">Comentario<textarea id="e_com" rows="3" maxlength="1500">${esc(v.comentario || "")}</textarea></label>
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+    </form>`);
+  m.querySelector("#fe").onsubmit = e => {
+    e.preventDefault();
+    const fecha = m.querySelector("#e_fecha").value, err = m.querySelector("#f_err");
+    if (!fecha) { err.textContent = "Indica la fecha de la evaluación."; err.hidden = false; return; }
+    const destrezas = {}; m.querySelectorAll("[data-dest]").forEach(s => { if (s.value) destrezas[s.dataset.dest] = s.value; });
+    const datos = { alumnoId: a.id, profesorId: YO, fecha, tipo: m.querySelector("#e_tipo").value, nivel: m.querySelector("#e_nivel").value, destrezas,
+      unidades: m.querySelector("#e_unid").value.trim(), comentario: m.querySelector("#e_com").value.trim(), proximaRevision: m.querySelector("#e_prox").value, creadoEn: ev ? ev.creadoEn || Date.now() : Date.now() };
+    guardar([{ coleccion: "evaluaciones", id: ev ? ev.id : D.nuevoId("evaluaciones", "ev"), nuevo: !ev, datos }], "Evaluación", "Evaluación guardada.");
+  };
+}
+
+function tabNotas(a){
+  const notas = notasDe(a.id);
+  return `${puedeEscribir() ? `<form id="nota" class="fgrid" novalidate>
+      <label class="field full">Nueva nota<textarea id="n_txt" rows="3" maxlength="2000" placeholder="Observación privada sobre el alumno"></textarea></label>
+      <label class="field">Fecha<input id="n_fecha" type="date" value="${dayKey(new Date())}"></label>
+      <div class="mfoot" style="align-self:end"><button type="submit" class="btn primary">Guardar nota</button></div></form>` : ""}
+    ${notas.length ? `<ul class="notas">${notas.map(n => `<li><div class="nh"><b>${fechaCorta(n.fecha)} ${n.fecha.slice(0, 4)}</b>${puedeEscribir() ? `<button class="link danger-l" type="button" data-borranota="${esc(n.id)}">Eliminar</button>` : ""}</div><p>${esc(n.texto).replace(/\n/g, "<br>")}</p></li>`).join("")}</ul>`
+      : `<p class="empty">Todavía no hay notas.</p>`}`;
+}
+
+/** Botones y formularios de las pestañas de información académica, seguimiento y notas. */
+function conectarTabsFicha(a){
+  const root = $("#drawerRoot");
+  const fa = root.querySelector("#acad");
+  if (fa) {
+    marcarSucia(fa);
+    const fila = () => { const li = document.createElement("li"); li.innerHTML = `<input type="checkbox" data-hecho aria-label="Alcanzado"><input data-texto maxlength="140" placeholder="Ej.: aprobar el DELE B1"><button type="button" class="iconbtn" data-quitar aria-label="Quitar objetivo">✕</button>`; return li; };
+    const conectarQuitar = () => fa.querySelectorAll("[data-quitar]").forEach(b => b.onclick = () => { b.closest("li").remove(); fichaSucia = true; });
+    conectarQuitar();
+    const add = fa.querySelector("#addObj"); if (add) add.onclick = () => { const li = fila(); fa.querySelector("#objs").appendChild(li); marcarSucia(li); conectarQuitar(); li.querySelector("[data-texto]").focus(); fichaSucia = true; };
+    fa.onsubmit = e => {
+      e.preventDefault();
+      const objetivos = [...fa.querySelectorAll("#objs li")].map((li, i) => ({ id: "ob" + i, texto: li.querySelector("[data-texto]").value.trim(), estado: li.querySelector("[data-hecho]").checked ? "alcanzado" : "pendiente" })).filter(o => o.texto);
+      const prev = new Map((a.objetivos || []).map(o => [o.texto, o]));
+      objetivos.forEach(o => { const p = prev.get(o.texto); if (o.estado === "alcanzado") o.fecha = p && p.estado === "alcanzado" && p.fecha ? p.fecha : dayKey(new Date()); });
+      const datos = { ...sinId(a), objetivos, destrezasMejorar: [...fa.querySelectorAll("[data-destreza]:checked")].map(x => x.value),
+        necesidades: fa.querySelector("#ac_nec").value.trim(), dificultades: fa.querySelector("#ac_dif").value.trim(),
+        intereses: fa.querySelector("#ac_int").value.trim(), observacionesProfe: fa.querySelector("#ac_obs").value.trim() };
+      fichaSucia = false;
+      guardar([{ coleccion: "alumnos", id: a.id, datos }], "Información académica", "Información académica guardada.");
+    };
+  }
+  const ne = root.querySelector("#nuevaEval"); if (ne) ne.onclick = () => formEvaluacion(a);
+  root.querySelectorAll("[data-editeval]").forEach(b => b.onclick = () => formEvaluacion(a, evaluacionesDe(a.id).find(e => e.id === b.dataset.editeval)));
+  root.querySelectorAll("[data-borraeval]").forEach(b => b.onclick = () => confirmar("Eliminar evaluación", "Se borrará esta evaluación. No se puede deshacer.", "Eliminar",
+    motivo => guardar([{ coleccion: "evaluaciones", id: b.dataset.borraeval, datos: null }], motivo || "Eliminar evaluación", "Evaluación eliminada."), true));
+  const fn = root.querySelector("#nota");
+  if (fn) {
+    marcarSucia(fn);
+    fn.onsubmit = e => {
+      e.preventDefault();
+      const texto = fn.querySelector("#n_txt").value.trim(), fecha = fn.querySelector("#n_fecha").value || dayKey(new Date());
+      if (!texto) { fn.querySelector("#n_txt").focus(); return; }
+      fichaSucia = false;
+      guardar([{ coleccion: "observaciones", id: D.nuevoId("observaciones", "ob"), nuevo: true, datos: { alumnoId: a.id, fecha, texto, ambito: "profe", creadoEn: Date.now() } }], "Nota", "Nota guardada.");
+    };
+  }
+  root.querySelectorAll("[data-borranota]").forEach(b => b.onclick = () => confirmar("Eliminar nota", "Se borrará esta nota. No se puede deshacer.", "Eliminar",
+    motivo => guardar([{ coleccion: "observaciones", id: b.dataset.borranota, datos: null }], motivo || "Eliminar nota", "Nota eliminada."), true));
+}
+
 /* ================= ficha del alumno ================= */
 let fichaAbierta = null, fichaTab = "resumen";
-function abrirFicha(id, tab = "resumen"){ fichaAbierta = id; fichaTab = tab; pintarFicha(); }
-function cerrarFicha(){ fichaAbierta = null; $("#drawerRoot").innerHTML = ""; }
-function pintarFicha(){
+function abrirFicha(id, tab = "resumen"){ fichaAbierta = id; fichaTab = tab; fichaSucia = false; pintarFicha(true); }
+function cerrarFicha(){ fichaAbierta = null; fichaSucia = false; $("#drawerRoot").innerHTML = ""; }
+let fichaSucia = false;
+function pintarFicha(forzar = false){
+  if (fichaSucia && !forzar && $("#drawerRoot .dbody")) return;   // hay cambios sin guardar en la ficha
+  fichaSucia = false;
   const a = (S.rincon.alumnos || []).find(x => x.id === fichaAbierta);
   if (!a) { cerrarFicha(); return; }
   const st = modelo().porAlumno.get(a.id), ac = acad(a.academiaId);
@@ -1039,7 +1220,7 @@ function pintarFicha(){
       <div><dt>Nivel inicial</dt><dd>${esc(a.nivelInicial || "—")}</dd></div><div><dt>Forma de pago</dt><dd>${a.modoPago === "por_clase" ? "Clase a clase" : "Con pack"}</dd></div>
       <div><dt>Profesora</dt><dd>Sara</dd></div><div><dt>Primera clase en la agenda</dt><dd>${st && st.consumos[0] ? fechaCorta(st.consumos[0].fecha) + " " + st.consumos[0].fecha.slice(0, 4) : "—"}</dd></div>
       <div><dt>Nacionalidad</dt><dd>${esc(a.nacionalidad || "—")}</dd></div><div><dt>Lengua materna</dt><dd>${esc(a.lenguaMaterna || "—")}</dd></div>
-      ${a.academiaId === "spanish-with-irene" ? `<div><dt>Clases anteriormente dadas</dt><dd>${a.clasesPreviasTarifa ? a.clasesPreviasTarifa.clases : 0}</dd></div>
+      ${a.academiaId === "spanish-with-irene" ? `<div><dt>Clases anteriormente dadas</dt><dd>${st ? st.previasTarifa : 0}${st && st.previasAuto && st.previasAuto >= ((a.clasesPreviasTarifa || {}).clases || 0) ? ' <small class="muted">(de sus packs)</small>' : ""}</dd></div>
       <div><dt>Clases en total contigo</dt><dd>${st ? st.totalTarifa : 0} ${st && st.totalTarifa >= 12 ? "· ya cobras 19/23 €" : "· 17/21 € hasta la 12"}</dd></div>` : ""}
     </dl>
     <section class="section"><header><h3>${st && st.actual ? esc(st.actual.pack.nombre || "Pack actual") : a.modoPago === "por_clase" ? "Clase a clase" : "Pack"}</h3><button class="link" type="button" data-tab="packs">Ver packs</button></header>
@@ -1053,6 +1234,9 @@ function pintarFicha(){
       ${clases.length ? `<ul class="hist">${clases.slice(0, 8).map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`}</section>
     ${puedeEscribir() ? `<div class="packacts gestion"><button class="link" type="button" id="f_fusion">Fusionar con otra ficha</button><button class="link danger-l" type="button" id="f_borrar">Eliminar ficha</button></div>` : ""}`;
   else if (fichaTab === "packs") body = tabPacks(a, st);
+  else if (fichaTab === "academica") body = tabAcademica(a);
+  else if (fichaTab === "seguimiento") body = tabSeguimiento(a);
+  else if (fichaTab === "notas") body = tabNotas(a);
   else if (fichaTab === "historial") body = clases.length ? `<ul class="hist">${clases.map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`;
   else body = `<p class="phase" style="align-self:flex-start">Próximo paso</p><p class="muted">La pestaña «${esc(tabs.find(t => t[0] === fichaTab)[1])}» llega en los siguientes pasos.</p>`;
   const antes = $("#drawerRoot .dbody"), scrollFicha = antes && antes.dataset.k === fichaAbierta + "|" + fichaTab ? antes.scrollTop : 0;
@@ -1078,13 +1262,14 @@ function pintarFicha(){
     else if (t === "ajuste") formAjuste(a, pk);
     else accionPack(t, a, pk);
   });
-  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { fichaTab = b.dataset.tab; pintarFicha(); });
+  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { fichaTab = b.dataset.tab; fichaSucia = false; pintarFicha(true); });
+  conectarTabsFicha(a);
   document.querySelectorAll("[data-unalias]").forEach(b => b.onclick = () => { const z = aliasDe(a.id).find(q => q.id === b.dataset.unalias); if (z) quitarAlias(z); });
 }
 
 /* ================= router y pantallas ================= */
 const VISTAS = { inicio: vInicio, calendario: vCalendario, "profe-resumen": vProfeResumen, "profe-alumnos": vProfeAlumnos, "profe-vincular": vVincular,
-  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura };
+  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura, "profe-seguimiento": vSeguimiento, "profe-actividad": vActividad };
 
 /** Agrupa los datos que llegan de golpe (por ejemplo al volver a la ventana) en un solo redibujado. */
 let renderPendiente = false;
@@ -1128,6 +1313,9 @@ function pintar(){
     [["fnivel", "nivel"], ["festado", "estado"], ["fpago", "pago"]].forEach(([id, k]) => v.querySelector("#" + id).onchange = e => { fAl[k] = e.target.value; render(); });
   }
   const ct = v.querySelector("#confirmarTipos"); if (ct) ct.onclick = () => guardar(baseInicial(), "Configuración inicial", "Configuración guardada: academias, tarifas y avisos.");
+  v.querySelectorAll("[data-seg]").forEach(b => b.onclick = () => { fSeg = b.dataset.seg; render(); });
+  v.querySelectorAll("[data-seguim]").forEach(tr => { tr.onclick = () => abrirFicha(tr.dataset.seguim, "seguimiento"); tr.onkeydown = e => { if (e.key === "Enter") abrirFicha(tr.dataset.seguim, "seguimiento"); }; });
+  v.querySelectorAll("[data-mesa]").forEach(b => b.onclick = () => { mesAct = sumarMes(mesAct, Number(b.dataset.mesa)); render(); });
   v.querySelectorAll("[data-fac]").forEach(b => b.onclick = () => { acFactura = b.dataset.fac; render(); });
   v.querySelectorAll("[data-mesf]").forEach(b => b.onclick = () => { mesFactura = sumarMes(mesFactura, Number(b.dataset.mesf)); render(); });
   const csv = v.querySelector("#csv"); if (csv) csv.onclick = descargarCSV;
@@ -1179,7 +1367,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28g");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28i");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1198,7 +1386,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28g");
+    D = await import("./datos.js?v=2026-11-28i");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
