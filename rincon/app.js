@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28e";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28e";
+export const VERSION = "2026-11-28f";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28f";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -688,10 +688,17 @@ function formClase(eventId){
 
 /* ================= packs ================= */
 const PLANTILLAS = {
-  "spanish-with-irene": [{ id: "24", nombre: "Pack 24", clases: 24, meses: 6 }, { id: "36", nombre: "Pack 36", clases: 36, meses: 9 }],
+  "spanish-with-irene": [{ id: "24", nombre: "Pack 6 meses (24 clases)", clases: 24, meses: 6 }, { id: "36", nombre: "Pack 9 meses (36 clases)", clases: 36, meses: 9 }],
   "lsi-karmele": [{ id: "adultos", nombre: "Pack adultos", categoria: "adultos", clases: 10, precio: 180, tarifaId: "lsi-adultos-2026" },
                   { id: "apoyo", nombre: "Pack apoyo", categoria: "apoyo", clases: 10, precio: 190, tarifaId: "lsi-apoyo-2026" }]
 };
+const etiquetaPlantilla = p => p.meses ? p.nombre : `${p.nombre} · ${p.clases} clases${p.precio ? " · " + p.precio + " €" : ""}`;
+/** Nombres antiguos de packs de Irene → nombres actuales (solo al mostrar; se guardan con el nuevo al editarlos). */
+const NOMBRE_ACTUAL = { "Pack 24": "Pack 6 meses (24 clases)", "Pack 36": "Pack 9 meses (36 clases)" };
+function normalizar(col, docs){
+  if (col !== "packs") return docs;
+  return docs.map(d => NOMBRE_ACTUAL[d.nombre] ? { ...d, nombre: NOMBRE_ACTUAL[d.nombre] } : d);
+}
 const ESTADO_PACK = { anterior: "Terminado (anterior)", activo: "En curso", renovar: "Aviso de renovación", urgente: "Aviso urgente", terminado: "Terminado", pendiente: "Pendiente de empezar", anulado: "Anulado" };
 /** renovado = hay un pack posterior (no anulado) del mismo alumno */
 const pillPack = (e, renovado) => {
@@ -735,7 +742,7 @@ function formPack(alumno, pack, opts = {}){
     <h2>${nuevo ? (base ? "Renovar pack" : "Nuevo pack") : "Editar pack"} · ${esc(nombreCompleto(alumno))}</h2>
     ${base ? `<p class="muted">El pack nuevo empezará a contar cuando se termine el «${esc(base.nombre)}».</p>` : ""}
     <form id="fp" class="fgrid" novalidate>
-      <label class="field full">Pack<select id="p_tipo">${plant.map(p => `<option value="${p.id}"${p.id === elegida ? " selected" : ""}>${esc(p.nombre)} · ${p.clases} clases${p.meses ? " · " + p.meses + " meses" : ""}${p.precio ? " · " + p.precio + " €" : ""}</option>`).join("")}<option value="otro"${elegida === "otro" ? " selected" : ""}>Otro</option></select></label>
+      <label class="field full">Pack<select id="p_tipo">${plant.map(p => `<option value="${p.id}"${p.id === elegida ? " selected" : ""}>${esc(etiquetaPlantilla(p))}</option>`).join("")}<option value="otro"${elegida === "otro" ? " selected" : ""}>Otro</option></select></label>
       <label class="field" id="p_nombre_box">Nombre del pack<input id="p_nombre" value="${esc(v.nombre)}" maxlength="40" placeholder="Ej.: Pack 12"></label>
       <label class="field">Clases contratadas<input id="p_clases" type="number" min="1" step="1" value="${esc(v.clasesContratadas)}"></label>
       <div class="field">Fecha de compra
@@ -791,7 +798,7 @@ function formPackAnterior(alumno){
     <h2>Pack anterior · ${esc(nombreCompleto(alumno))}</h2>
     <p class="muted">Para dejar constancia de un pack que ya terminó antes de usar Mi rincón de profe. No descuenta clases de la agenda, no se factura y no genera avisos.</p>
     <form id="fh" class="fgrid" novalidate>
-      <label class="field">Pack<select id="h_tipo">${plant.map(p => `<option value="${p.id}">${esc(p.nombre)} · ${p.clases} clases${p.meses ? " · " + p.meses + " meses" : ""}</option>`).join("")}<option value="otro">Otro</option></select></label>
+      <label class="field">Pack<select id="h_tipo">${plant.map(p => `<option value="${p.id}">${esc(etiquetaPlantilla(p))}</option>`).join("")}<option value="otro">Otro</option></select></label>
       <label class="field">Clases<input id="h_clases" type="number" min="1" step="1" value="${plant[0] ? plant[0].clases : ""}"></label>
       <label class="field" id="h_nombre_box" hidden>Nombre del pack<input id="h_nombre" maxlength="40" placeholder="Ej.: Pack 12"></label>
       <label class="field">Periodo (opcional)<input id="h_periodo" maxlength="40" placeholder="Ej.: 6 meses · ene–jun 2025"></label>
@@ -1112,7 +1119,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28e");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28f");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1131,7 +1138,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28e");
+    D = await import("./datos.js?v=2026-11-28f");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
@@ -1144,7 +1151,7 @@ async function arrancar(){
     S.sesion = "dentro"; render();
     D.escucharAgenda(items => { S.agenda = items; invalidar(); programarRender(); },
       e => { S.agendaError = D.esPermisoDenegado(e) ? "Tu usuario no tiene permiso para leer la agenda." : "Revisa tu conexión."; render(); });
-    D.escucharRincon((col, docs) => { S.rincon[col] = docs; S.rinconDenegado = false; invalidar(); programarRender(); },
+    D.escucharRincon((col, docs) => { S.rincon[col] = normalizar(col, docs); S.rinconDenegado = false; invalidar(); programarRender(); },
       (col, e) => { if (D.esPermisoDenegado(e)) { S.rinconDenegado = true; programarRender(); } });
   });
 }
