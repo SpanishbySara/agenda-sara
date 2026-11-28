@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28m";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28m";
+export const VERSION = "2026-11-28n";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28n";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -107,7 +107,7 @@ function nav(){
     { title: "General", items: [["inicio", "Dashboard", "home"], ["calendario", "Calendario", "cal"]] },
     { title: "Mi espacio de profe", space: "profe", items: [
       ["profe-resumen", "Resumen docente", "sun"], ["profe-alumnos", "Mis alumnos", "users"], ["profe-perfiles", "Perfiles", "card"], ["profe-vincular", "Nombres sin vincular", "link", m.sinVincular.length],
-      ["profe-packs", "Packs y renovaciones", "layers"], ["profe-historial", "Historial de clases", "hist"], ["profe-seguimiento", "Seguimiento académico", "sprout"],
+      ["profe-packs", "Packs y renovaciones", "layers"], ["profe-historial", "Historial de clases", "hist"],
       ["profe-actividad", "Mi actividad docente", "chart"], ["profe-factura", "Factura del mes", "receipt"]] },
     { title: "Jefa de estudios", space: "coord", items: [
       ["coord-resumen", "Resumen de coordinación", "sun"], ["coord-alumnado", "Alumnado", "users"], ["coord-matching", "Matching y agrupaciones", "compass"],
@@ -1512,7 +1512,8 @@ function pintarFicha(forzar = false){
   const st = modelo().porAlumno.get(a.id), ac = acad(a.academiaId);
   const clases = (st ? st.consumos : []).slice().reverse();
   const dadas = clases.filter(c => !c.prevista);
-  const tabs = [["resumen", "Resumen"], ["perfil", "Perfil"], ["academica", "Información académica"], ["packs", "Packs"], ["historial", "Historial"], ["seguimiento", "Seguimiento"], ["notas", "Notas"],
+  // Información académica, Seguimiento y Notas se quitaron a petición de Sara (el código se conserva por si se recuperan).
+  const tabs = [["resumen", "Resumen"], ["perfil", "Perfil"], ["packs", "Packs"], ["historial", "Historial"],
     ...(a.academiaId === IRENE ? [["coordinacion", "Coordinación"]] : [])];
   const fila = c => { const r = modelo().datos.registros.get(c.eventId); return `<li class="clic" data-clase="${esc(c.eventId)}" tabindex="0"><span class="num">${fechaCorta(c.fecha)}</span><span>${cap(c.modalidad)} · ${c.minutos} min${r && r.contenido ? ` · <span class="muted">${esc(r.contenido)}</span>` : ""}${c.nota ? ` · <span class="muted">${esc(c.nota)}</span>` : ""}</span>${etiquetaConsumo(c)}</li>`; };
   let body;
@@ -1682,7 +1683,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28m");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28n");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1701,7 +1702,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28m");
+    D = await import("./datos.js?v=2026-11-28n");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
