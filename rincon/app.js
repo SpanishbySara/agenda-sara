@@ -1,7 +1,7 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28r";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28r";
-import { proponer, puntuarPareja, puntuarGrupo, claveGrupo, textoHuecos } from "./matching.js?v=2026-11-28r";
+export const VERSION = "2026-11-28s";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28s";
+import { proponer, puntuarPareja, puntuarGrupo, claveGrupo, textoHuecos } from "./matching.js?v=2026-11-28s";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -522,7 +522,7 @@ function vActividad(){
 const headCoord = (title, intro, side = "") => head("Jefa de estudios · Spanish with Irene", title, intro, side, "var(--oliva)");
 let fCo = { q: "", estado: "", nivel: "", prof: "", mod: "" };
 const filaCoord = ({ a, act }) => `<tr data-fcoord="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td>
-  <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(act ? act.modalidad : a.modalidadPreferida) || "—")}</b>${a.soloIndividual ? `<small>Solo individual</small>` : ""}</td>
+  <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(act ? act.modalidad : a.modalidadPreferida) || "—")}</b>${a.soloIndividual ? `<small>Solo individual</small>` : ""}${textoCompaneros(a, act ? act.modalidad : a.modalidadPreferida) ? `<small class="${companeros(a.id) ? "con" : "sincon"}">${esc(textoCompaneros(a, act ? act.modalidad : a.modalidadPreferida))}</small>` : ""}</td>
   <td><small>${esc(textoFranjas(disponibilidadDe(a.id)) || (disponibilidadDe(a.id) || {}).notas || "—")}</small></td>
   <td><span class="state st-${a.estado === "pendiente" ? "pendiente" : a.estado === "activo" ? "activo" : ["propuesta", "temporal"].includes(a.estado) ? "propuesta" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</span></td></tr>`;
 const tablaCoord = filas => `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Modalidad</th><th>Disponibilidad</th><th>Estado</th></tr></thead><tbody>${filas.map(filaCoord).join("")}</tbody></table></div>`;
@@ -569,7 +569,7 @@ function verProfesora(id){
       <p class="muted">${esc([(p.niveles || []).join(", "), (p.modalidades || []).map(x => modLabel(x)).join(", "), (p.especialidades || []).join(", ")].filter(Boolean).join(" · "))}</p></div>
       ${puedeEscribir() ? `<div class="headside"><button class="btn sm" type="button" id="vp_edit">Editar</button><button class="btn sm primary oliva" type="button" id="vp_add">+ Añadir alumno</button></div>` : ""}</div>
     ${p.observaciones ? `<p class="note">${esc(p.observaciones)}</p>` : ""}
-    ${filas.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Nivel</th><th>Modalidad</th><th>Estado</th></tr></thead><tbody>${filas.map(({ a, act }) => `<tr data-vpal="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(act.modalidad) || "—")}</b></td><td>${esc(ESTADOS_ALUMNO[a.estado] || "—")}</td></tr>`).join("")}</tbody></table></div>`
+    ${filas.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Nivel</th><th>Modalidad</th><th>Estado</th></tr></thead><tbody>${filas.map(({ a, act }) => `<tr data-vpal="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(act.modalidad) || "—")}</b>${textoCompaneros(a, act.modalidad) ? `<small>${esc(textoCompaneros(a, act.modalidad))}</small>` : ""}</td><td>${esc(ESTADOS_ALUMNO[a.estado] || "—")}</td></tr>`).join("")}</tbody></table></div>`
       : `<p class="empty">Todavía no tiene alumnos. Añádelos con «+ Añadir alumno».</p>`}
     <div class="mfoot"><button type="button" class="btn ghost" data-cerrar>Cerrar</button></div>`);
   const e = m.querySelector("#vp_edit"); if (e) e.onclick = () => formProfesor(p);
@@ -666,6 +666,21 @@ function vMatching(){
   <p class="note">Puntos: nivel (35), disponibilidad (30), edad (15), profesora (10) y objetivos o aficiones en común (10). Si no coinciden en ningún hueco, la compatibilidad es baja; si falta la disponibilidad de alguien, como mucho media.</p>`;
 }
 
+/** Pareja o grupo actual de un alumno y sus compañeros. */
+function companeros(alumnoId){
+  const g = gruposVivos().find(x => (x.miembros || []).some(m => m.alumnoId === alumnoId && (!m.hasta || m.hasta > hoyK())));
+  if (!g) return null;
+  const al = new Map(alumnadoIrene().map(a => [a.id, a]));
+  const otros = g.miembros.filter(m => m.alumnoId !== alumnoId && (!m.hasta || m.hasta > hoyK())).map(m => al.get(m.alumnoId)).filter(Boolean);
+  return { g, otros };
+}
+const nombresY = l => l.length <= 1 ? (l[0] || "") : l.slice(0, -1).join(", ") + " y " + l[l.length - 1];
+/** Texto corto: «con David (en prueba)» o «sin compañero registrado». */
+function textoCompaneros(a, modalidad){
+  const c = companeros(a.id);
+  if (c) return `con ${nombresY(c.otros.map(x => x.nombre))}${c.g.estado === "prueba" ? " (en prueba)" : ""}`;
+  return modalidad && modalidad !== "individual" ? "sin compañero registrado" : "";
+}
 const tipoGrupo = g => g.tipo === "pareja" ? "Pareja" : g.tamano ? `Grupo de ${g.tamano}` : `Grupo de ${(g.miembros || []).filter(m => !m.hasta).length}`;
 function tarjetaGrupo(g){
   const al = new Map(alumnadoIrene().map(a => [a.id, a]));
@@ -684,7 +699,7 @@ function vGrupos(){
   const g = S.rincon.grupos || [], prueba = g.filter(x => x.estado === "prueba"), fijos = g.filter(x => x.estado === "activo"), fin = g.filter(x => x.estado === "finalizado");
   const col = (t, n, html, vacio) => `<section class="section col-grupos"><header><h2>${t}</h2><span class="muted" style="font-size:.8rem">${n}</span></header>${n ? `<div class="pila">${html}</div>` : `<p class="empty">${vacio}</p>`}</section>`;
   return `${aviso()}
-  ${headCoord("Parejas y grupos", "Cómo va cada agrupación: propuestas que guardaste, en prueba y fijas.", `<button class="btn primary oliva" type="button" data-go="coord-matching">Buscar nuevas</button>`)}
+  ${headCoord("Parejas y grupos", "Cómo va cada agrupación: propuestas que guardaste, en prueba y fijas.", `<div class="headside">${puedeEscribir() ? `<button class="btn" type="button" id="registrarGrupo">+ Registrar pareja o grupo</button>` : ""}<button class="btn primary oliva" type="button" data-go="coord-matching">Buscar nuevas</button></div>`)}
   <div class="tres">
     ${col("Propuestas", guard.length, guard.map(x => tarjetaPropuesta(x, true)).join(""), "Guarda propuestas desde Matching para verlas aquí.")}
     ${col("En prueba", prueba.length, prueba.map(tarjetaGrupo).join(""), "Ninguna pareja ni grupo en prueba.")}
@@ -737,9 +752,11 @@ function decidirPropuesta(pr, estado, ok){
 
 /** Cambiar integrantes: eliges a mano y ves la compatibilidad al momento. */
 function formCambiar(pr){
-  const cand = new Map([...candidatosMatching(), ...pr.miembros].map(x => [x.id, x]));
+  // Al registrar a mano se puede elegir a cualquier alumno de las profesoras que no esté ya en una pareja o grupo.
+  const libres = (() => { const ocup = enGrupo(); return alumnadoCoord().filter(a => !["finalizado"].includes(a.estado) && !ocup.has(a.id)).map(perfilMatch); })();
+  const cand = new Map([...(pr.manual ? libres : candidatosMatching()), ...pr.miembros].map(x => [x.id, x]));
   const sel = new Set(pr.miembros.map(x => x.id));
-  const m = modal(`<h2>Cambiar integrantes</h2><p class="muted">Elige de 2 a 4 alumnos.</p>
+  const m = modal(`<h2>${pr.manual ? "Registrar pareja o grupo" : "Cambiar integrantes"}</h2><p class="muted">Elige de 2 a 4 alumnos.${pr.manual ? " Para una pareja o grupo que ya funciona, al guardarlo quita la marca «de prueba»." : ""}</p>
     <div class="cambiar"><ul class="elegir">${[...cand.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<li><label class="check"><input type="checkbox" value="${x.id}"${sel.has(x.id) ? " checked" : ""}> ${esc(x.nombre)} <span class="muted">${esc([x.nivel, x.edad ? x.edad + " años" : ""].filter(Boolean).join(" · "))}</span></label></li>`).join("")}</ul>
     <div id="cm_res"></div></div>
     <div class="mfoot"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="button" class="btn primary oliva" id="cm_ok">Aprobar esta agrupación</button></div>`);
@@ -754,6 +771,7 @@ function formCambiar(pr){
   };
   m.querySelectorAll(".elegir input").forEach(i => i.onchange = calc); calc();
   m.querySelector("#cm_ok").onclick = () => { if (actual) formAprobar(actual); };
+  if (pr.manual) m.querySelector("#cm_ok").textContent = "Continuar";
 }
 
 function accionGrupo(id, tipo){
@@ -1625,6 +1643,7 @@ function tabCoordinacion(a){
       <div><dt>Estado</dt><dd>${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</dd></div><div><dt>Edad</dt><dd>${a.edad ?? "—"}</dd></div>
       <div><dt>Nivel</dt><dd>${esc(nivelActual(a) || "—")}</dd></div><div><dt>Modalidad</dt><dd>${esc(modLabel(act ? act.modalidad : a.modalidadPreferida) || "—")}${a.soloIndividual ? " · solo individual" : ""}</dd></div>
       <div><dt>Profesora</dt><dd>${act ? esc(nombreProf(act.profesorId)) : "Sin asignar"}</dd></div>
+      ${(() => { const c = companeros(a.id); return c ? `<div class="full"><dt>${c.g.tipo === "pareja" ? "Pareja" : "Grupo"}</dt><dd><b>${esc(c.g.nombre)}</b> · con ${esc(nombresY(c.otros.map(nombreCompleto)))}${c.g.estado === "prueba" ? " · en prueba" : " · fija"}</dd></div>` : ""; })()}
       <div class="full"><dt>Disponibilidad</dt><dd>${esc(textoFranjas(disp) || "Sin indicar")}${disp && disp.notas ? `<br><span class="muted">${esc(disp.notas)}</span>` : ""}</dd></div>
     </dl>
     ${a.observacionesCoord ? `<p class="note">${esc(a.observacionesCoord)}</p>` : ""}
@@ -1825,6 +1844,7 @@ function pintar(){
   const csv = v.querySelector("#csv"); if (csv) csv.onclick = descargarCSV;
   v.querySelectorAll("[data-fichapk]").forEach(b => b.onclick = () => abrirFicha(b.dataset.fichapk, "packs"));
   v.querySelectorAll("[data-clase]").forEach(tr => { tr.onclick = () => formClase(tr.dataset.clase); tr.onkeydown = e => { if (e.key === "Enter") formClase(tr.dataset.clase); }; });
+  const rg = v.querySelector("#registrarGrupo"); if (rg) rg.onclick = () => formCambiar({ manual: true, miembros: [] });
   const pf = v.querySelector("#prefs");
   if (pf) pf.onsubmit = ev => {
     ev.preventDefault();
@@ -1871,7 +1891,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28r");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28s");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1890,7 +1910,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28r");
+    D = await import("./datos.js?v=2026-11-28s");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
