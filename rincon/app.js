@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28o";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28o";
+export const VERSION = "2026-11-28p";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28p";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -520,11 +520,11 @@ function vActividad(){
 /* ================= Jefa de estudios ================= */
 const headCoord = (title, intro, side = "") => head("Jefa de estudios · Spanish with Irene", title, intro, side, "var(--oliva)");
 let fCo = { q: "", estado: "", nivel: "", prof: "", mod: "" };
-const filaCoord = ({ a, act }) => `<tr data-fcoord="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span>${a.nacionalidad ? `<small>${esc(a.nacionalidad)}</small>` : ""}</td>
-  <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td>${esc(a.nivelObjetivo || "—")}</td><td><b>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</b></td>
+const filaCoord = ({ a, act }) => `<tr data-fcoord="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td>
+  <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</b></td>
   <td><small>${esc(textoFranjas(disponibilidadDe(a.id)) || (disponibilidadDe(a.id) || {}).notas || "—")}</small></td>
   <td><span class="state st-${a.estado === "pendiente" ? "pendiente" : a.estado === "activo" ? "activo" : ["propuesta", "temporal"].includes(a.estado) ? "propuesta" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</span></td></tr>`;
-const tablaCoord = filas => `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Objetivo</th><th>Modalidad</th><th>Disponibilidad</th><th>Estado</th></tr></thead><tbody>${filas.map(filaCoord).join("")}</tbody></table></div>`;
+const tablaCoord = filas => `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Modalidad</th><th>Disponibilidad</th><th>Estado</th></tr></thead><tbody>${filas.map(filaCoord).join("")}</tbody></table></div>`;
 function vAlumnado(){
   const todos = alumnadoCoord();
   const filas = todos.map(a => ({ a, act: asignacionActual(a.id) })).filter(({ a, act }) =>
@@ -1426,13 +1426,10 @@ function formAlumnoCoord(alumno, preset = {}){
     <form id="fac" class="fgrid" novalidate>
       ${nuevo ? `<label class="field">Nombre<input id="c_nombre" maxlength="60"></label><label class="field">Apellidos<input id="c_apellidos" maxlength="80"></label>` : ""}
       <label class="field">Edad<input id="c_edad" type="number" min="3" max="99" step="1" value="${a.edad ?? ""}"></label>
-      <label class="field">Nacionalidad<input id="c_nac" value="${esc(a.nacionalidad || "")}" maxlength="40"></label>
       <label class="field">Nivel inicial<select id="c_ini"><option value="">Sin nivel</option>${NIVELES.map(n => `<option${n === a.nivelInicial ? " selected" : ""}>${n}</option>`).join("")}</select></label>
-      <label class="field">Nivel objetivo<select id="c_obj"><option value="">Sin indicar</option>${NIVELES.map(n => `<option${n === a.nivelObjetivo ? " selected" : ""}>${n}</option>`).join("")}</select></label>
-      <label class="field">Modalidad preferida<select id="c_mod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${k === a.modalidadPreferida ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="field">Modalidad<select id="c_mod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${k === (act ? act.modalidad : a.modalidadPreferida) ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="field">Estado<select id="c_estado">${Object.entries(ESTADOS_ALUMNO).map(([k, l]) => `<option value="${k}"${k === a.estado ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="field">Profesor asignado<select id="c_prof"><option value="">Sin asignar</option>${profesoras().map(p => `<option value="${p.id}"${act && act.profesorId === p.id ? " selected" : ""}>${esc(p.esYo ? "Sara (yo)" : p.nombre)}</option>`).join("")}</select></label>
-      <label class="field">Modalidad de la asignación<select id="c_amod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${(act ? act.modalidad : a.modalidadPreferida) === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       <fieldset class="field full"><legend>Disponibilidad <span class="muted">· la del formulario de entrada, en hora de España</span></legend>${editorFranjas("c_disp", disp && disp.franjas)}
         <label class="field" style="margin-top:8px">Notas de disponibilidad<input id="c_dnotas" value="${esc((disp && disp.notas) || "")}" maxlength="200" placeholder="Ej.: flexible · mejor por la tarde · vive en Japón (+8 h)"></label></fieldset>
       <label class="field full">Observaciones de coordinación<textarea id="c_obs" rows="2" maxlength="1000">${esc(a.observacionesCoord || "")}</textarea></label>
@@ -1449,13 +1446,12 @@ function formAlumnoCoord(alumno, preset = {}){
     if (edad != null && (!Number.isInteger(edad) || edad < 3 || edad > 99)) return fail("La edad tiene que ser un número entre 3 y 99.");
     const fr = leerFranjas(m, "c_disp"); if (fr.error) return fail(fr.error);
     const datos = { ...(alumno ? sinId(alumno) : { academiaId: IRENE, modoPago: "pack", lenguaMaterna: "", clasesPreviasTarifa: null, creadoEn: Date.now() }),
-      edad, nacionalidad: m.querySelector("#c_nac").value.trim(), nivelInicial: m.querySelector("#c_ini").value, nivelObjetivo: m.querySelector("#c_obj").value,
-      modalidadPreferida: m.querySelector("#c_mod").value, estado: est.value, observacionesCoord: m.querySelector("#c_obs").value.trim() };
+      edad, nivelInicial: m.querySelector("#c_ini").value, modalidadPreferida: m.querySelector("#c_mod").value, estado: est.value, observacionesCoord: m.querySelector("#c_obs").value.trim() };
     if (nuevo) { datos.nombre = m.querySelector("#c_nombre").value.trim(); datos.apellidos = m.querySelector("#c_apellidos").value.trim(); if (!datos.nombre) return fail("Escribe el nombre del alumno."); }
     if (prof.value && est.value === "pendiente") return fail("Si tiene profesor asignado, el estado no puede ser «Pendiente de asignación».");
     const id = alumno ? alumno.id : D.nuevoId("alumnos", "al"), al = { ...datos, id };
     const cambios = [...baseInicial(), { coleccion: "alumnos", id, nuevo, datos },
-      ...cambiosAsignar(al, prof.value || null, m.querySelector("#c_amod").value, null)];
+      ...cambiosAsignar(al, prof.value || null, m.querySelector("#c_mod").value, null)];
     const dnotas = m.querySelector("#c_dnotas").value.trim();
     if (fr.franjas.length || dnotas || disponibilidadDe(id)) cambios.push({ coleccion: "disponibilidad", id, nuevo: !disponibilidadDe(id), datos: { personaTipo: "alumno", zonaHoraria: "Europe/Madrid", franjas: fr.franjas, notas: dnotas } });
     guardar(cambios, nuevo ? "Nuevo alumno (coordinación)" : "Coordinación del alumno", nuevo ? `${datos.nombre} añadido al alumnado.` : "Datos de coordinación guardados.");
@@ -1467,8 +1463,8 @@ function tabCoordinacion(a){
   return `
     <dl class="facts">
       <div><dt>Estado</dt><dd>${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</dd></div><div><dt>Edad</dt><dd>${a.edad ?? "—"}</dd></div>
-      <div><dt>Nivel actual</dt><dd>${esc(nivelActual(a) || "—")}</dd></div><div><dt>Nivel objetivo</dt><dd>${esc(a.nivelObjetivo || "—")}</dd></div>
-      <div><dt>Modalidad preferida</dt><dd>${esc(MODALIDADES[a.modalidadPreferida] || "—")}</dd></div><div><dt>Profesor asignado</dt><dd>${act ? esc(nombreProf(act.profesorId)) + " · " + esc(MODALIDADES[act.modalidad] || "") : "Sin asignar"}</dd></div>
+      <div><dt>Nivel</dt><dd>${esc(nivelActual(a) || "—")}</dd></div><div><dt>Modalidad</dt><dd>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</dd></div>
+      <div><dt>Profesora</dt><dd>${act ? esc(nombreProf(act.profesorId)) : "Sin asignar"}</dd></div>
       <div class="full"><dt>Disponibilidad</dt><dd>${esc(textoFranjas(disp) || "Sin indicar")}${disp && disp.notas ? `<br><span class="muted">${esc(disp.notas)}</span>` : ""}</dd></div>
     </dl>
     ${a.observacionesCoord ? `<p class="note">${esc(a.observacionesCoord)}</p>` : ""}
@@ -1705,7 +1701,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28o");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28p");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1724,7 +1720,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28o");
+    D = await import("./datos.js?v=2026-11-28p");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
