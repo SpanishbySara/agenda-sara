@@ -353,3 +353,5 @@ table.fac tfoot td{padding:12px;border-top:2px solid var(--line)}
 .franjas select,.franjas input{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 8px;font:inherit;font-size:.88rem;color:var(--ink)}
 .facts .full{grid-column:1 / -1}
 .st-pendiente{color:var(--urgent)}
+details.opcional{border:1px dashed var(--line);border-radius:14px;padding:10px 14px}
+details.opcional[open] summary{margin-bottom:8px}

@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28j";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28j";
+export const VERSION = "2026-11-28k";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28k";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -535,10 +535,10 @@ function vAlumnado(){
     <select id="cprof" aria-label="Profesor">${opt("prof", [["", "Todos los profesores"], ["-", "Sin asignar"], ...profesores().map(p => [p.id, p.esYo ? "Sara (yo)" : p.nombre])])}</select>
     <select id="cmod" aria-label="Modalidad">${opt("mod", [["", "Todas las modalidades"], ...Object.entries(MODALIDADES)])}</select>
   </div>
-  ${todos.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Objetivo</th><th>Modalidad</th><th>Profesor</th><th>Disponibilidad</th><th>Estado</th></tr></thead>
+  ${todos.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Objetivo</th><th>Modalidad</th><th>Profesor</th><th>Estado</th></tr></thead>
     <tbody>${filas.map(({ a, act }) => `<tr data-fcoord="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span>${a.nacionalidad ? `<small>${esc(a.nacionalidad)}</small>` : ""}</td>
-      <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td>${esc(a.nivelObjetivo || "—")}</td><td>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</td>
-      <td>${act ? esc(nombreProf(act.profesorId)) : '<span class="state st-pendiente">Sin asignar</span>'}</td><td><small>${esc(textoFranjas(disponibilidadDe(a.id)) || "—")}</small></td>
+      <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td>${esc(a.nivelObjetivo || "—")}</td><td><b>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</b></td>
+      <td>${act ? esc(nombreProf(act.profesorId)) : '<span class="state st-pendiente">Sin asignar</span>'}</td>
       <td><span class="state st-${a.estado === "pendiente" ? "pendiente" : a.estado === "activo" ? "activo" : ["propuesta", "temporal"].includes(a.estado) ? "propuesta" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</span></td></tr>`).join("")}</tbody></table>
     ${filas.length ? "" : `<p class="empty">Ningún alumno coincide con estos filtros.</p>`}</div>`
     : `<p class="empty">Todavía no hay alumnos de Spanish with Irene. Los que crees desde tu agenda aparecen aquí; los de otros profesores añádelos con «+ Nuevo alumno».</p>`}`;
@@ -547,14 +547,14 @@ function vAlumnado(){
 function vProfesorado(){
   const carga = cargaProfesores();
   return `${aviso()}
-  ${headCoord("Profesorado", "Una ficha por profesor con su disponibilidad y su carga de trabajo. Las horas salen del horario de sus asignaciones.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoProf">+ Nuevo profesor</button>` : "")}
-  ${carga.length ? `<div class="twrap"><table><thead><tr><th>Profesor</th><th>Niveles</th><th>Modalidades</th><th>Especialidades</th><th class="n">Alumnos</th><th>Carga semanal</th><th>Disponibilidad</th></tr></thead>
-    <tbody>${carga.map(({ p, alumnos, horas: h, cap }) => `<tr data-prof="${p.id}" tabindex="0"><td><span class="name">${esc(p.esYo ? "Sara (yo)" : p.nombre)}</span></td>
+  ${headCoord("Profesorado", "Una ficha por profesor y cuántos alumnos tiene en individual, en pareja y en grupo. Si indicas un máximo de alumnos, verás lo lleno que está.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoProf">+ Nuevo profesor</button>` : "")}
+  ${carga.length ? `<div class="twrap"><table><thead><tr><th>Profesor</th><th>Niveles</th><th>Modalidades</th><th>Especialidades</th><th class="n">Individual</th><th class="n">Pareja</th><th class="n">Grupo</th><th>Alumnos</th></tr></thead>
+    <tbody>${carga.map(({ p, n, cap, ind, par, gru }) => `<tr data-prof="${p.id}" tabindex="0"><td><span class="name">${esc(p.esYo ? "Sara (yo)" : p.nombre)}</span></td>
       <td>${esc((p.niveles || []).join(", ") || "—")}</td><td>${esc((p.modalidades || []).map(x => MODALIDADES[x]).join(", ") || "—")}</td><td><small>${esc((p.especialidades || []).join(", ") || "—")}</small></td>
-      <td class="n">${alumnos.length}</td><td><div class="load"><div class="row" style="grid-template-columns:minmax(80px,1fr) 70px"><span class="bar"><b class="${cap && h >= cap ? "full" : ""}" style="width:${cap ? Math.min(100, Math.round(h / cap * 100)) : 0}%"></b></span><span class="num">${String(Math.round(h * 10) / 10).replace(".", ",")}/${cap || "—"} h</span></div></div></td>
-      <td><small>${esc(textoFranjas(disponibilidadDe(p.id)) || "—")}</small></td></tr>`).join("")}</tbody></table></div>`
+      <td class="n">${ind}</td><td class="n">${par}</td><td class="n">${gru}</td>
+      <td>${cap ? `<div class="load"><div class="row" style="grid-template-columns:minmax(80px,1fr) 60px"><span class="bar"><b class="${n >= cap ? "full" : ""}" style="width:${Math.min(100, Math.round(n / cap * 100))}%"></b></span><span class="num">${n}/${cap}</span></div></div>` : `<b>${n}</b>`}</td></tr>`).join("")}</tbody></table></div>`
     : `<p class="empty">Todavía no hay profesores. Añádelos con «+ Nuevo profesor».</p>`}
-  <p class="note">Las horas de carga se calcularán a partir del horario de cada asignación, que se define en «Horarios y asignaciones» (siguiente paso).</p>`;
+`;
 }
 
 function vCoordResumen(){
@@ -564,8 +564,8 @@ function vCoordResumen(){
   const incid = (S.rincon.incidencias || []).filter(i => i.estado !== "resuelta");
   const nuevos = al.filter(a => a.creadoEn && mesKey(new Date(a.creadoEn)) === mes).length;
   const alertas = [
-    ...pend.map(a => ({ cls: "urgent", t: `${nombreCompleto(a)} espera profesor`, s: `${nivelActual(a) || "Sin nivel"} · ${MODALIDADES[a.modalidadPreferida] || ""}${textoFranjas(disponibilidadDe(a.id)) ? " · " + textoFranjas(disponibilidadDe(a.id)) : ""}`, id: a.id })),
-    ...carga.filter(x => x.cap && x.horas >= x.cap).map(x => ({ cls: "", t: `${x.p.nombre} está al 100 % de su capacidad`, s: `${String(Math.round(x.horas * 10) / 10).replace(".", ",")} de ${x.cap} horas semanales` })),
+    ...pend.map(a => ({ cls: "urgent", t: `${nombreCompleto(a)} espera profesor`, s: `${nivelActual(a) || "Sin nivel"} · prefiere ${(MODALIDADES[a.modalidadPreferida] || "—").toLowerCase()}`, id: a.id })),
+    ...carga.filter(x => x.lleno).map(x => ({ cls: "", t: `${x.p.nombre} está completo`, s: `${x.n} de ${x.cap} alumnos` })),
     ...al.filter(a => a.estado === "temporal" || a.estado === "propuesta").map(a => ({ cls: "coord", t: `${nombreCompleto(a)}: ${ESTADOS_ALUMNO[a.estado].toLowerCase()}`, s: "Revisa si se confirma", id: a.id }))
   ];
   return `${aviso()}
@@ -577,7 +577,7 @@ function vCoordResumen(){
     <div class="urg"><span class="v">${pend.length}</span><span class="l">Pendientes de asignación</span></div>
     <div><span class="v">${parejas}</span><span class="l">Parejas activas</span></div>
     <div><span class="v">${grupos}</span><span class="l">Grupos activos</span></div>
-    <div><span class="v">${carga.filter(x => !x.cap || x.horas < x.cap).length}</span><span class="l">Profesores con hueco</span></div>
+    <div><span class="v">${carga.filter(x => !x.lleno).length}</span><span class="l">Profesores con hueco</span></div>
     <div class="warn"><span class="v">${incid.length}</span><span class="l">Incidencias pendientes</span></div>
     <div><span class="v">${nuevos}</span><span class="l">Incorporaciones en ${MN[new Date().getMonth()]}</span></div>
   </div>
@@ -585,7 +585,7 @@ function vCoordResumen(){
     <section class="section"><header><h2>Alertas de coordinación</h2><span class="muted" style="font-size:.8rem">${plural(alertas.length, "alerta", "alertas")}</span></header>
       ${alertas.length ? `<ul class="alerts">${alertas.map(a => `<li><span class="dot ${a.cls}"></span><div><b>${esc(a.t)}</b><small>${esc(a.s)}</small></div>${a.id ? `<button class="link" type="button" data-fcoord="${a.id}" style="color:var(--oliva)">Ver ficha</button>` : "<span></span>"}</li>`).join("")}</ul>` : `<p class="empty">Todo en orden.</p>`}</section>
     <section class="section"><header><h2>Carga del profesorado</h2><button class="link" type="button" data-go="coord-profesorado" style="color:var(--oliva)">Profesorado</button></header>
-      ${carga.length ? `<div class="load">${carga.map(x => `<div class="row"><span>${esc(x.p.esYo ? "Sara (yo)" : x.p.nombre)}</span><span class="bar"><b class="${x.cap && x.horas >= x.cap ? "full" : ""}" style="width:${x.cap ? Math.min(100, Math.round(x.horas / x.cap * 100)) : 0}%"></b></span><span class="num">${x.alumnos.length} al.</span></div>`).join("")}</div>` : `<p class="empty">Añade el profesorado en «Profesorado».</p>`}</section>
+      ${carga.length ? `<div class="load">${carga.map(x => `<div class="row"><span>${esc(x.p.esYo ? "Sara (yo)" : x.p.nombre)}</span><span class="bar"><b class="${x.lleno ? "full" : ""}" style="width:${x.cap ? Math.min(100, Math.round(x.n / x.cap * 100)) : Math.min(100, x.n * 8)}%"></b></span><span class="num">${x.n}${x.cap ? "/" + x.cap : ""} al.</span></div>`).join("")}</div>` : `<p class="empty">Añade el profesorado en «Profesorado».</p>`}</section>
   </div>`;
 }
 
@@ -1344,7 +1344,7 @@ function formAlumnoCoord(alumno){
       <label class="field">Estado<select id="c_estado">${Object.entries(ESTADOS_ALUMNO).map(([k, l]) => `<option value="${k}"${k === a.estado ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="field">Profesor asignado<select id="c_prof"><option value="">Sin asignar</option>${profesores().map(p => `<option value="${p.id}"${act && act.profesorId === p.id ? " selected" : ""}>${esc(p.esYo ? "Sara (yo)" : p.nombre)}</option>`).join("")}</select></label>
       <label class="field">Modalidad de la asignación<select id="c_amod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${(act ? act.modalidad : a.modalidadPreferida) === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
-      <fieldset class="field full"><legend>Disponibilidad horaria <span class="muted">(hora de España)</span></legend>${editorFranjas("c_disp", disp && disp.franjas)}</fieldset>
+      <details class="field full opcional"${disp && disp.franjas && disp.franjas.length ? " open" : ""}><summary>Disponibilidad horaria (opcional)</summary>${editorFranjas("c_disp", disp && disp.franjas)}</details>
       <label class="field full">Observaciones de coordinación<textarea id="c_obs" rows="2" maxlength="1000">${esc(a.observacionesCoord || "")}</textarea></label>
       <p class="err full" id="f_err" hidden></p>
       <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
@@ -1378,7 +1378,7 @@ function tabCoordinacion(a){
       <div><dt>Estado</dt><dd>${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</dd></div><div><dt>Edad</dt><dd>${a.edad ?? "—"}</dd></div>
       <div><dt>Nivel actual</dt><dd>${esc(nivelActual(a) || "—")}</dd></div><div><dt>Nivel objetivo</dt><dd>${esc(a.nivelObjetivo || "—")}</dd></div>
       <div><dt>Modalidad preferida</dt><dd>${esc(MODALIDADES[a.modalidadPreferida] || "—")}</dd></div><div><dt>Profesor asignado</dt><dd>${act ? esc(nombreProf(act.profesorId)) + " · " + esc(MODALIDADES[act.modalidad] || "") : "Sin asignar"}</dd></div>
-      <div class="full"><dt>Disponibilidad</dt><dd>${esc(textoFranjas(disp) || "Sin indicar")}</dd></div>
+      ${textoFranjas(disp) ? `<div class="full"><dt>Disponibilidad</dt><dd>${esc(textoFranjas(disp))}</dd></div>` : ""}
     </dl>
     ${a.observacionesCoord ? `<p class="note">${esc(a.observacionesCoord)}</p>` : ""}
     ${puedeEscribir() ? `<button class="btn sm" type="button" id="editCoord" style="align-self:flex-start">Editar coordinación</button>` : ""}
@@ -1388,17 +1388,17 @@ function tabCoordinacion(a){
 
 /** Ficha de profesor. */
 function formProfesor(p){
-  const nuevo = !p, v = p || { nombre: "", especialidades: [], niveles: NIVELES.slice(), modalidades: ["individual", "pareja", "grupo"], capacidadSemanalHoras: 20, observaciones: "", activo: true };
+  const nuevo = !p, v = p || { nombre: "", especialidades: [], niveles: NIVELES.slice(), modalidades: ["individual", "pareja", "grupo"], capacidadAlumnos: null, observaciones: "", activo: true };
   const disp = p ? disponibilidadDe(p.id) : null;
   const m = modal(`
     <h2>${nuevo ? "Nuevo profesor" : esc(v.esYo ? "Sara (yo)" : v.nombre)}</h2>
     <form id="fpr" class="fgrid" novalidate>
       <label class="field">Nombre<input id="r_nombre" value="${esc(v.nombre)}" maxlength="60"${v.esYo ? " disabled" : ""}></label>
-      <label class="field">Capacidad (horas por semana)<input id="r_cap" type="number" min="0" step="0.5" value="${v.capacidadSemanalHoras ?? ""}"></label>
+      <label class="field">Máximo de alumnos <span class="muted">(opcional)</span><input id="r_cap" type="number" min="0" step="1" value="${v.capacidadAlumnos ?? ""}"></label>
       <label class="field full">Especialidades<input id="r_esp" value="${esc((v.especialidades || []).join(", "))}" maxlength="200" placeholder="Ej.: conversación, DELE, negocios"></label>
       <fieldset class="field"><legend>Niveles que imparte</legend><div class="estados">${NIVELES.map(n => `<label class="check"><input type="checkbox" data-niv value="${n}"${(v.niveles || []).includes(n) ? " checked" : ""}> ${n}</label>`).join("")}</div></fieldset>
       <fieldset class="field"><legend>Modalidades</legend><div class="estados">${Object.entries(MODALIDADES).map(([k, l]) => `<label class="check"><input type="checkbox" data-modp value="${k}"${(v.modalidades || []).includes(k) ? " checked" : ""}> ${l}</label>`).join("")}</div></fieldset>
-      <fieldset class="field full"><legend>Disponibilidad <span class="muted">(hora de España)</span></legend>${editorFranjas("r_disp", disp && disp.franjas)}</fieldset>
+      <details class="field full opcional"${disp && disp.franjas && disp.franjas.length ? " open" : ""}><summary>Disponibilidad (opcional)</summary>${editorFranjas("r_disp", disp && disp.franjas)}</details>
       <label class="field full">Observaciones<textarea id="r_obs" rows="2" maxlength="1000">${esc(v.observaciones || "")}</textarea></label>
       ${!nuevo && !v.esYo ? `<label class="check full"><input type="checkbox" id="r_baja"${v.activo === false ? " checked" : ""}> Ya no trabaja en la academia (se oculta de las listas)</label>` : ""}
       <p class="err full" id="f_err" hidden></p>
@@ -1408,12 +1408,12 @@ function formProfesor(p){
   m.querySelector("#fpr").onsubmit = ev => {
     ev.preventDefault();
     const err = m.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
-    const nombre = v.esYo ? v.nombre : m.querySelector("#r_nombre").value.trim(), cap = Number(m.querySelector("#r_cap").value);
+    const nombre = v.esYo ? v.nombre : m.querySelector("#r_nombre").value.trim(), capTxt = m.querySelector("#r_cap").value.trim(), cap = capTxt === "" ? null : Number(capTxt);
     if (!nombre) return fail("Escribe el nombre del profesor.");
-    if (!Number.isFinite(cap) || cap < 0) return fail("La capacidad tiene que ser un número de horas.");
+    if (cap != null && (!Number.isInteger(cap) || cap < 0)) return fail("El máximo de alumnos tiene que ser un número entero.");
     const fr = leerFranjas(m, "r_disp"); if (fr.error) return fail(fr.error);
     const id = p ? p.id : D.nuevoId("profesores", "pr"), baja = m.querySelector("#r_baja");
-    const datos = { ...(p ? sinId(p) : { esYo: false, academias: [IRENE] }), nombre, capacidadSemanalHoras: cap,
+    const datos = { ...(p ? sinId(p) : { esYo: false, academias: [IRENE] }), nombre, capacidadAlumnos: cap,
       especialidades: m.querySelector("#r_esp").value.split(",").map(x => x.trim()).filter(Boolean),
       niveles: [...m.querySelectorAll("[data-niv]:checked")].map(x => x.value), modalidades: [...m.querySelectorAll("[data-modp]:checked")].map(x => x.value),
       observaciones: m.querySelector("#r_obs").value.trim(), activo: baja ? !baja.checked : true };
@@ -1429,9 +1429,9 @@ function cargaProfesores(){
   return profesores().map(p => {
     const asig = (S.rincon.asignaciones || []).filter(x => x.profesorId === p.id && vigente(x) && x.destino && (x.destino.tipo !== "alumno" || al.has(x.destino.id)));
     const alumnos = asig.filter(x => x.destino.tipo === "alumno").map(x => al.get(x.destino.id)).filter(a => a && a.estado !== "finalizado");
-    const h = asig.reduce((t, x) => t + minutosHorario(x.horario), 0) / 60;
-    const cap = Number(p.capacidadSemanalHoras) || 0;
-    return { p, alumnos, horas: h, cap, libre: cap ? Math.max(0, cap - h) : null };
+    const n = alumnos.length, cap = Number.isInteger(p.capacidadAlumnos) ? p.capacidadAlumnos : 0;
+    const ind = asig.filter(x => x.modalidad === "individual").length, par = asig.filter(x => x.modalidad === "pareja").length, gru = asig.filter(x => x.modalidad === "grupo").length;
+    return { p, alumnos, n, cap, ind, par, gru, lleno: !!cap && n >= cap };
   });
 }
 
@@ -1615,7 +1615,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28j");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28k");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1634,7 +1634,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28j");
+    D = await import("./datos.js?v=2026-11-28k");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
