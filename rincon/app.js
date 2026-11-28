@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-26i";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-26i";
+export const VERSION = "2026-11-28a";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28a";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -889,13 +889,15 @@ function pintarFicha(){
   else if (fichaTab === "packs") body = tabPacks(a, st);
   else if (fichaTab === "historial") body = clases.length ? `<ul class="hist">${clases.map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`;
   else body = `<p class="phase" style="align-self:flex-start">Próximo paso</p><p class="muted">La pestaña «${esc(tabs.find(t => t[0] === fichaTab)[1])}» llega en los siguientes pasos.</p>`;
+  const antes = $("#drawerRoot .dbody"), scrollFicha = antes && antes.dataset.k === fichaAbierta + "|" + fichaTab ? antes.scrollTop : 0;
   $("#drawerRoot").innerHTML = `<div class="scrim" id="fscrim"></div>
     <aside class="drawer" role="dialog" aria-modal="true" aria-label="Ficha de ${esc(nombreCompleto(a))}">
       <div class="dh"><span class="avatar ${ac.css}">${esc((a.nombre[0] || "") + ((a.apellidos || "")[0] || ""))}</span><div><span class="eyebrow">Ficha de alumno</span><h2><span class="name${resaltado(a.id)}">${esc(nombreCompleto(a))}</span></h2><div style="margin-top:6px">${chip(a.academiaId)}</div></div>
         <div class="dh-actions">${puedeEscribir() ? `<button class="btn sm" type="button" id="f_edit">Editar</button>` : ""}<button class="x" type="button" id="f_close" aria-label="Cerrar ficha"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>
       <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${fichaTab === k}">${l}</button>`).join("")}</div>
-      <div class="dbody">${body}</div>
+      <div class="dbody" data-k="${esc(fichaAbierta + "|" + fichaTab)}">${body}</div>
     </aside>`;
+  if (scrollFicha) $("#drawerRoot .dbody").scrollTop = scrollFicha;
   $("#fscrim").onclick = cerrarFicha; $("#f_close").onclick = cerrarFicha;
   const ed = $("#f_edit"); if (ed) ed.onclick = () => formFicha(a);
   document.querySelectorAll("#drawerRoot [data-clase]").forEach(li => { li.onclick = () => formClase(li.dataset.clase); li.onkeydown = e => { if (e.key === "Enter") formClase(li.dataset.clase); }; });
@@ -915,7 +917,19 @@ function pintarFicha(){
 const VISTAS = { inicio: vInicio, calendario: vCalendario, "profe-resumen": vProfeResumen, "profe-alumnos": vProfeAlumnos, "profe-vincular": vVincular,
   "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias };
 
+/** Agrupa los datos que llegan de golpe (por ejemplo al volver a la ventana) en un solo redibujado. */
+let renderPendiente = false;
+function programarRender(){
+  if (renderPendiente) return;
+  renderPendiente = true;
+  requestAnimationFrame(() => { renderPendiente = false; render(); });   // con la ventana minimizada espera a que vuelva
+}
 function render(){
+  const act = document.activeElement, foco = act && act.id && $("#view") && $("#view").contains(act) ? { id: act.id, ini: act.selectionStart, fin: act.selectionEnd } : null;
+  pintar();
+  if (foco) { const n = document.getElementById(foco.id); if (n && n !== document.activeElement) { n.focus(); try { if (foco.ini != null) n.setSelectionRange(foco.ini, foco.fin); } catch (e) {} } }
+}
+function pintar(){
   const app = $("#app"), login = $("#login"), boot = $("#boot");
   boot.hidden = !(S.sesion === "cargando" || ((S.sesion === "dentro" || S.sesion === "demo") && !S.agenda && !S.agendaError));
   login.hidden = S.sesion !== "fuera";
@@ -965,6 +979,12 @@ function render(){
 let lastHash = location.hash;
 window.addEventListener("hashchange", () => { const same = location.hash === lastHash; lastHash = location.hash; render(); if (!same) window.scrollTo(0, 0); });
 $("#menuBtn").onclick = () => document.body.classList.add("menu-open");
+let finResize = null;
+window.addEventListener("resize", () => {
+  document.body.classList.add("resizing");
+  if (window.innerWidth > 860) document.body.classList.remove("menu-open");
+  clearTimeout(finResize); finResize = setTimeout(() => document.body.classList.remove("resizing"), 250);
+});
 $("#scrimMenu").onclick = () => document.body.classList.remove("menu-open");
 document.addEventListener("keydown", e => { if (e.key === "Escape") document.body.classList.remove("menu-open"); });
 
@@ -987,7 +1007,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-26i");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28a");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1006,7 +1026,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-26i");
+    D = await import("./datos.js?v=2026-11-28a");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
@@ -1017,10 +1037,10 @@ async function arrancar(){
     S.agenda = null; S.agendaError = ""; S.rincon = {}; S.rinconDenegado = false; invalidar();
     if (!user) { S.sesion = "fuera"; render(); setTimeout(() => $("#lg_user")?.focus(), 0); return; }
     S.sesion = "dentro"; render();
-    D.escucharAgenda(items => { S.agenda = items; invalidar(); render(); },
+    D.escucharAgenda(items => { S.agenda = items; invalidar(); programarRender(); },
       e => { S.agendaError = D.esPermisoDenegado(e) ? "Tu usuario no tiene permiso para leer la agenda." : "Revisa tu conexión."; render(); });
-    D.escucharRincon((col, docs) => { S.rincon[col] = docs; S.rinconDenegado = false; invalidar(); render(); },
-      (col, e) => { if (D.esPermisoDenegado(e)) { S.rinconDenegado = true; render(); } });
+    D.escucharRincon((col, docs) => { S.rincon[col] = docs; S.rinconDenegado = false; invalidar(); programarRender(); },
+      (col, e) => { if (D.esPermisoDenegado(e)) { S.rinconDenegado = true; programarRender(); } });
   });
 }
 arrancar();

@@ -322,3 +322,4 @@ details summary{cursor:pointer;font-size:.85rem;color:var(--muted)}
 .hist li.clic:hover{background:color-mix(in srgb,var(--burdeos) 5%,transparent)}
 td small{display:block}
 input[type=radio],input[type=checkbox]{accent-color:var(--burdeos)}
+.resizing .side,.resizing .scrim-menu{transition:none!important}
