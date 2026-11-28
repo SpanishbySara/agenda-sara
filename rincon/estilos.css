@@ -368,3 +368,4 @@ details.opcional[open] summary{margin-bottom:8px}
 .perfil dd{margin:0;overflow-wrap:anywhere}
 .contacto{margin:8px 0 0;font-size:.88rem}
 a{color:var(--burdeos)}
+.profhead{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}

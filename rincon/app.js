@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28n";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28n";
+export const VERSION = "2026-11-28o";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28o";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -205,7 +205,7 @@ function vInicio(){
     </div>
     <div class="space coord">
       <div class="t"><div><span class="eyebrow">Spanish with Irene · toda la academia</span><h2>Jefa de estudios</h2></div></div>
-      <div class="figs"><div><b>${(S.rincon.alumnos || []).filter(a => a.academiaId === "spanish-with-irene").length}</b><span>alumnos con ficha</span></div><div><b>${(S.rincon.profesores || []).length}</b><span>profesores</span></div><div><b>${(S.rincon.incidencias || []).filter(i => i.estado !== "resuelta").length}</b><span>incidencias abiertas</span></div></div>
+      <div class="figs"><div><b>${alumnadoCoord().length}</b><span>alumnos de las profesoras</span></div><div><b>${profesoras().length}</b><span>profesoras</span></div><div><b>${(S.rincon.incidencias || []).filter(i => i.estado !== "resuelta").length}</b><span>incidencias abiertas</span></div></div>
       <button class="go" type="button" data-go="coord-resumen">Entrar</button>
       <svg class="art" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="var(--oliva)" stroke-width="1.4"><circle cx="38" cy="40" r="10"/><circle cx="64" cy="40" r="10"/><path d="M20 76c3-11 10-17 18-17s15 6 18 17M46 76c3-11 10-17 18-17s15 6 18 17"/></svg>
     </div>
@@ -520,46 +520,64 @@ function vActividad(){
 /* ================= Jefa de estudios ================= */
 const headCoord = (title, intro, side = "") => head("Jefa de estudios · Spanish with Irene", title, intro, side, "var(--oliva)");
 let fCo = { q: "", estado: "", nivel: "", prof: "", mod: "" };
+const filaCoord = ({ a, act }) => `<tr data-fcoord="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span>${a.nacionalidad ? `<small>${esc(a.nacionalidad)}</small>` : ""}</td>
+  <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td>${esc(a.nivelObjetivo || "—")}</td><td><b>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</b></td>
+  <td><small>${esc(textoFranjas(disponibilidadDe(a.id)) || (disponibilidadDe(a.id) || {}).notas || "—")}</small></td>
+  <td><span class="state st-${a.estado === "pendiente" ? "pendiente" : a.estado === "activo" ? "activo" : ["propuesta", "temporal"].includes(a.estado) ? "propuesta" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</span></td></tr>`;
+const tablaCoord = filas => `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Objetivo</th><th>Modalidad</th><th>Disponibilidad</th><th>Estado</th></tr></thead><tbody>${filas.map(filaCoord).join("")}</tbody></table></div>`;
 function vAlumnado(){
-  const todos = alumnadoIrene();
+  const todos = alumnadoCoord();
   const filas = todos.map(a => ({ a, act: asignacionActual(a.id) })).filter(({ a, act }) =>
     (!fCo.q || nombreCompleto(a).toLowerCase().includes(fCo.q.toLowerCase())) && (!fCo.estado || a.estado === fCo.estado) && (!fCo.nivel || nivelActual(a) === fCo.nivel)
     && (!fCo.prof || (fCo.prof === "-" ? !act : act && act.profesorId === fCo.prof)) && (!fCo.mod || (act ? act.modalidad : a.modalidadPreferida) === fCo.mod))
     .sort((x, y) => nombreCompleto(x.a).localeCompare(nombreCompleto(y.a), "es"));
+  const grupos = [...profesoras().map(p => ({ t: p.nombre, id: p.id, f: filas.filter(x => x.act && x.act.profesorId === p.id) })), { t: "Sin profesora asignada", id: "", f: filas.filter(x => !x.act) }].filter(g => g.f.length);
   const opt = (k, list) => list.map(([v, l]) => `<option value="${v}"${fCo[k] === v ? " selected" : ""}>${esc(l)}</option>`).join("");
+  const resumen = f => { const n = k => f.filter(x => (x.act ? x.act.modalidad : x.a.modalidadPreferida) === k).length; return [["individual", "individual"], ["pareja", "en pareja"], ["grupo", "en grupo"]].map(([k, l]) => n(k) ? `${n(k)} ${l}` : "").filter(Boolean).join(" · "); };
   return `${aviso()}
-  ${headCoord("Alumnado", "Todo el alumnado de Spanish with Irene, también el de otros profesores. Es la misma ficha que en Mi espacio de profe.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoCoord">+ Nuevo alumno</button>` : "")}
+  ${headCoord("Alumnado", "Los alumnos de las profesoras de la academia, agrupados por profesora. Tus propios alumnos no aparecen aquí: están en Mi espacio de profe.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoCoord">+ Nuevo alumno</button>` : "")}
   <div class="tools">
     <input id="cq" type="search" placeholder="Buscar por nombre" value="${esc(fCo.q)}" aria-label="Buscar alumno">
     <select id="cestado" aria-label="Estado">${opt("estado", [["", "Todos los estados"], ...Object.entries(ESTADOS_ALUMNO)])}</select>
     <select id="cnivel" aria-label="Nivel">${opt("nivel", [["", "Todos los niveles"], ...NIVELES.map(n => [n, n])])}</select>
-    <select id="cprof" aria-label="Profesor">${opt("prof", [["", "Todos los profesores"], ["-", "Sin asignar"], ...profesores().map(p => [p.id, p.esYo ? "Sara (yo)" : p.nombre])])}</select>
+    <select id="cprof" aria-label="Profesora">${opt("prof", [["", "Todas las profesoras"], ["-", "Sin asignar"], ...profesoras().map(p => [p.id, p.nombre])])}</select>
     <select id="cmod" aria-label="Modalidad">${opt("mod", [["", "Todas las modalidades"], ...Object.entries(MODALIDADES)])}</select>
   </div>
-  ${todos.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Objetivo</th><th>Modalidad</th><th>Profesor</th><th>Disponibilidad</th><th>Estado</th></tr></thead>
-    <tbody>${filas.map(({ a, act }) => `<tr data-fcoord="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span>${a.nacionalidad ? `<small>${esc(a.nacionalidad)}</small>` : ""}</td>
-      <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td>${esc(a.nivelObjetivo || "—")}</td><td><b>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</b></td>
-      <td>${act ? esc(nombreProf(act.profesorId)) : '<span class="state st-pendiente">Sin asignar</span>'}</td><td><small>${esc(textoFranjas(disponibilidadDe(a.id)) || (disponibilidadDe(a.id) || {}).notas || "—")}</small></td>
-      <td><span class="state st-${a.estado === "pendiente" ? "pendiente" : a.estado === "activo" ? "activo" : ["propuesta", "temporal"].includes(a.estado) ? "propuesta" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</span></td></tr>`).join("")}</tbody></table>
-    ${filas.length ? "" : `<p class="empty">Ningún alumno coincide con estos filtros.</p>`}</div>`
-    : `<p class="empty">Todavía no hay alumnos de Spanish with Irene. Los que crees desde tu agenda aparecen aquí; los de otros profesores añádelos con «+ Nuevo alumno».</p>`}`;
+  ${todos.length ? (grupos.length ? grupos.map(g => `<section class="section"><header><h2>${esc(g.t)}</h2><span class="muted" style="font-size:.85rem">${plural(g.f.length, "alumno", "alumnos")}${resumen(g.f) ? " · " + resumen(g.f) : ""}</span></header>${tablaCoord(g.f)}</section>`).join("")
+      : `<p class="empty">Ningún alumno coincide con estos filtros.</p>`)
+    : `<p class="empty">Todavía no hay alumnos de las profesoras. Añádelos con «+ Nuevo alumno» o desde la ficha de cada profesora en «Profesorado».</p>`}`;
 }
 
 function vProfesorado(){
   const carga = cargaProfesores();
   return `${aviso()}
-  ${headCoord("Profesorado", "Una ficha por profesor y cuántos alumnos tiene en individual, en pareja y en grupo. Si indicas un máximo de alumnos, verás lo lleno que está.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoProf">+ Nuevo profesor</button>` : "")}
-  ${carga.length ? `<div class="twrap"><table><thead><tr><th>Profesor</th><th>Niveles</th><th>Modalidades</th><th>Especialidades</th><th class="n">Individual</th><th class="n">Pareja</th><th class="n">Grupo</th><th>Alumnos</th></tr></thead>
-    <tbody>${carga.map(({ p, n, cap, ind, par, gru }) => `<tr data-prof="${p.id}" tabindex="0"><td><span class="name">${esc(p.esYo ? "Sara (yo)" : p.nombre)}</span></td>
-      <td>${esc((p.niveles || []).join(", ") || "—")}</td><td>${esc((p.modalidades || []).map(x => MODALIDADES[x]).join(", ") || "—")}</td><td><small>${esc((p.especialidades || []).join(", ") || "—")}</small></td>
+  ${headCoord("Profesorado", "Las profesoras de la academia y sus alumnos. Pulsa una profesora para ver sus alumnos y añadirle nuevos.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoProf">+ Nueva profesora</button>` : "")}
+  ${carga.length ? `<div class="twrap"><table><thead><tr><th>Profesora</th><th>Niveles</th><th>Modalidades</th><th class="n">Individual</th><th class="n">Pareja</th><th class="n">Grupo</th><th>Alumnos</th></tr></thead>
+    <tbody>${carga.map(({ p, n, cap, ind, par, gru }) => `<tr data-verprof="${p.id}" tabindex="0"><td><span class="name">${esc(p.nombre)}</span>${(p.especialidades || []).length ? `<small>${esc(p.especialidades.join(", "))}</small>` : ""}</td>
+      <td>${esc((p.niveles || []).join(", ") || "—")}</td><td>${esc((p.modalidades || []).map(x => MODALIDADES[x]).join(", ") || "—")}</td>
       <td class="n">${ind}</td><td class="n">${par}</td><td class="n">${gru}</td>
       <td>${cap ? `<div class="load"><div class="row" style="grid-template-columns:minmax(80px,1fr) 60px"><span class="bar"><b class="${n >= cap ? "full" : ""}" style="width:${Math.min(100, Math.round(n / cap * 100))}%"></b></span><span class="num">${n}/${cap}</span></div></div>` : `<b>${n}</b>`}</td></tr>`).join("")}</tbody></table></div>`
-    : `<p class="empty">Todavía no hay profesores. Añádelos con «+ Nuevo profesor».</p>`}
-`;
+    : `<p class="empty">Todavía no hay profesoras. Añade a Blanca con «+ Nueva profesora».</p>`}`;
+}
+
+/** Ficha de una profesora con sus alumnos. */
+function verProfesora(id){
+  const p = profById(id); if (!p) return;
+  const filas = alumnadoCoord().map(a => ({ a, act: asignacionActual(a.id) })).filter(x => x.act && x.act.profesorId === id).sort((x, y) => nombreCompleto(x.a).localeCompare(nombreCompleto(y.a), "es"));
+  const m = modal(`<div class="profhead"><div><span class="eyebrow" style="color:var(--oliva)">Profesora</span><h2>${esc(p.nombre)}</h2>
+      <p class="muted">${esc([(p.niveles || []).join(", "), (p.modalidades || []).map(x => MODALIDADES[x]).join(", "), (p.especialidades || []).join(", ")].filter(Boolean).join(" · "))}</p></div>
+      ${puedeEscribir() ? `<div class="headside"><button class="btn sm" type="button" id="vp_edit">Editar</button><button class="btn sm primary oliva" type="button" id="vp_add">+ Añadir alumno</button></div>` : ""}</div>
+    ${p.observaciones ? `<p class="note">${esc(p.observaciones)}</p>` : ""}
+    ${filas.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Nivel</th><th>Modalidad</th><th>Estado</th></tr></thead><tbody>${filas.map(({ a, act }) => `<tr data-vpal="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(MODALIDADES[act.modalidad] || "—")}</b></td><td>${esc(ESTADOS_ALUMNO[a.estado] || "—")}</td></tr>`).join("")}</tbody></table></div>`
+      : `<p class="empty">Todavía no tiene alumnos. Añádelos con «+ Añadir alumno».</p>`}
+    <div class="mfoot"><button type="button" class="btn ghost" data-cerrar>Cerrar</button></div>`);
+  const e = m.querySelector("#vp_edit"); if (e) e.onclick = () => formProfesor(p);
+  const ad = m.querySelector("#vp_add"); if (ad) ad.onclick = () => formAlumnoCoord(null, { profesorId: id });
+  m.querySelectorAll("[data-vpal]").forEach(tr => tr.onclick = () => { cerrarModal(); abrirFicha(tr.dataset.vpal, "coordinacion"); });
 }
 
 function vCoordResumen(){
-  const al = alumnadoIrene(), c = e => al.filter(a => a.estado === e).length, mes = mesKey(new Date());
+  const al = alumnadoCoord(), c = e => al.filter(a => a.estado === e).length, mes = mesKey(new Date());
   const carga = cargaProfesores(), pend = al.filter(a => a.estado === "pendiente" || (a.estado === "activo" && !asignacionActual(a.id)));
   const parejas = (S.rincon.grupos || []).filter(g => g.estado === "activo" && g.tipo === "pareja").length, grupos = (S.rincon.grupos || []).filter(g => g.estado === "activo" && g.tipo !== "pareja").length;
   const incid = (S.rincon.incidencias || []).filter(i => i.estado !== "resuelta");
@@ -570,7 +588,7 @@ function vCoordResumen(){
     ...al.filter(a => a.estado === "temporal" || a.estado === "propuesta").map(a => ({ cls: "coord", t: `${nombreCompleto(a)}: ${ESTADOS_ALUMNO[a.estado].toLowerCase()}`, s: "Revisa si se confirma", id: a.id }))
   ];
   return `${aviso()}
-  ${headCoord("Resumen de coordinación", "Todo el alumnado de la academia, también el que no es tuyo.")}
+  ${headCoord("Resumen de coordinación", "Los alumnos de las profesoras de la academia. Tus propios alumnos están en Mi espacio de profe.")}
   <div class="ledger">
     <div><span class="v">${al.length}</span><span class="l">Alumnos en total</span></div>
     <div><span class="v">${c("activo")}</span><span class="l">Activos</span></div>
@@ -586,7 +604,7 @@ function vCoordResumen(){
     <section class="section"><header><h2>Alertas de coordinación</h2><span class="muted" style="font-size:.8rem">${plural(alertas.length, "alerta", "alertas")}</span></header>
       ${alertas.length ? `<ul class="alerts">${alertas.map(a => `<li><span class="dot ${a.cls}"></span><div><b>${esc(a.t)}</b><small>${esc(a.s)}</small></div>${a.id ? `<button class="link" type="button" data-fcoord="${a.id}" style="color:var(--oliva)">Ver ficha</button>` : "<span></span>"}</li>`).join("")}</ul>` : `<p class="empty">Todo en orden.</p>`}</section>
     <section class="section"><header><h2>Carga del profesorado</h2><button class="link" type="button" data-go="coord-profesorado" style="color:var(--oliva)">Profesorado</button></header>
-      ${carga.length ? `<div class="load">${carga.map(x => `<div class="row"><span>${esc(x.p.esYo ? "Sara (yo)" : x.p.nombre)}</span><span class="bar"><b class="${x.lleno ? "full" : ""}" style="width:${x.cap ? Math.min(100, Math.round(x.n / x.cap * 100)) : Math.min(100, x.n * 8)}%"></b></span><span class="num">${x.n}${x.cap ? "/" + x.cap : ""} al.</span></div>`).join("")}</div>` : `<p class="empty">Añade el profesorado en «Profesorado».</p>`}</section>
+      ${carga.length ? `<div class="load">${carga.map(x => `<div class="row"><span>${esc(x.p.nombre)}</span><span class="bar"><b class="${x.lleno ? "full" : ""}" style="width:${x.cap ? Math.min(100, Math.round(x.n / x.cap * 100)) : Math.min(100, x.n * 8)}%"></b></span><span class="num">${x.n}${x.cap ? "/" + x.cap : ""} al.</span></div>`).join("")}</div>` : `<p class="empty">Añade el profesorado en «Profesorado».</p>`}</section>
   </div>`;
 }
 
@@ -1352,6 +1370,9 @@ const vigente = x => !x.hasta || x.hasta > hoyK();   // cerrada hoy = ya no vige
 const asignacionesDe = alumnoId => (S.rincon.asignaciones || []).filter(x => x.destino && x.destino.tipo === "alumno" && x.destino.id === alumnoId).sort((a, b) => (a.desde || "") < (b.desde || "") ? 1 : -1);
 const asignacionActual = alumnoId => asignacionesDe(alumnoId).find(vigente) || null;
 const alumnadoIrene = () => (S.rincon.alumnos || []).filter(a => a.academiaId === IRENE);
+/** Alumnos de las profesoras (Jefa de estudios): los de Irene que no son míos. Mis alumnos se quedan en Mi espacio de profe. */
+const alumnadoCoord = () => { const mios = new Set(misAlumnos().map(a => a.id)); return alumnadoIrene().filter(a => !mios.has(a.id)); };
+const profesoras = () => profesores().filter(p => !p.esYo);
 const disponibilidadDe = id => (S.rincon.disponibilidad || []).find(d => d.id === id) || null;
 const textoFranjas = d => d && d.franjas && d.franjas.length ? d.franjas.map(f => `${DIAS[f.dia].slice(0, 3)} ${f.inicio}–${f.fin}`).join(" · ") : "";
 const minutosHorario = h => (h || []).reduce((t, f) => t + Math.max(0, mins(f.fin) - mins(f.inicio)), 0);
@@ -1396,9 +1417,10 @@ function leerFranjas(root, id){
 }
 
 /** Alta o edición de un alumno de la academia desde Jefa de estudios. */
-function formAlumnoCoord(alumno){
+function formAlumnoCoord(alumno, preset = {}){
   const nuevo = !alumno, a = alumno || { nombre: "", apellidos: "", edad: null, nacionalidad: "", lenguaMaterna: "", nivelInicial: "", nivelObjetivo: "", modalidadPreferida: "individual", estado: "pendiente", modoPago: "pack" };
-  const act = alumno ? asignacionActual(alumno.id) : null, disp = alumno ? disponibilidadDe(alumno.id) : null;
+  const act = alumno ? asignacionActual(alumno.id) : (preset.profesorId ? { profesorId: preset.profesorId, modalidad: "individual" } : null), disp = alumno ? disponibilidadDe(alumno.id) : null;
+  if (nuevo && preset.profesorId) a.estado = "activo";
   const m = modal(`
     <h2>${nuevo ? "Nuevo alumno · Spanish with Irene" : "Coordinación · " + esc(nombreCompleto(a))}</h2>
     <form id="fac" class="fgrid" novalidate>
@@ -1409,7 +1431,7 @@ function formAlumnoCoord(alumno){
       <label class="field">Nivel objetivo<select id="c_obj"><option value="">Sin indicar</option>${NIVELES.map(n => `<option${n === a.nivelObjetivo ? " selected" : ""}>${n}</option>`).join("")}</select></label>
       <label class="field">Modalidad preferida<select id="c_mod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${k === a.modalidadPreferida ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="field">Estado<select id="c_estado">${Object.entries(ESTADOS_ALUMNO).map(([k, l]) => `<option value="${k}"${k === a.estado ? " selected" : ""}>${l}</option>`).join("")}</select></label>
-      <label class="field">Profesor asignado<select id="c_prof"><option value="">Sin asignar</option>${profesores().map(p => `<option value="${p.id}"${act && act.profesorId === p.id ? " selected" : ""}>${esc(p.esYo ? "Sara (yo)" : p.nombre)}</option>`).join("")}</select></label>
+      <label class="field">Profesor asignado<select id="c_prof"><option value="">Sin asignar</option>${profesoras().map(p => `<option value="${p.id}"${act && act.profesorId === p.id ? " selected" : ""}>${esc(p.esYo ? "Sara (yo)" : p.nombre)}</option>`).join("")}</select></label>
       <label class="field">Modalidad de la asignación<select id="c_amod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${(act ? act.modalidad : a.modalidadPreferida) === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       <fieldset class="field full"><legend>Disponibilidad <span class="muted">· la del formulario de entrada, en hora de España</span></legend>${editorFranjas("c_disp", disp && disp.franjas)}
         <label class="field" style="margin-top:8px">Notas de disponibilidad<input id="c_dnotas" value="${esc((disp && disp.notas) || "")}" maxlength="200" placeholder="Ej.: flexible · mejor por la tarde · vive en Japón (+8 h)"></label></fieldset>
@@ -1459,7 +1481,7 @@ function tabCoordinacion(a){
 function formProfesor(p){
   const nuevo = !p, v = p || { nombre: "", especialidades: [], niveles: NIVELES.slice(), modalidades: ["individual", "pareja", "grupo"], capacidadAlumnos: null, observaciones: "", activo: true };
   const m = modal(`
-    <h2>${nuevo ? "Nuevo profesor" : esc(v.esYo ? "Sara (yo)" : v.nombre)}</h2>
+    <h2>${nuevo ? "Nueva profesora" : esc(v.esYo ? "Sara (yo)" : v.nombre)}</h2>
     <form id="fpr" class="fgrid" novalidate>
       <label class="field">Nombre<input id="r_nombre" value="${esc(v.nombre)}" maxlength="60"${v.esYo ? " disabled" : ""}></label>
       <label class="field">Máximo de alumnos <span class="muted">(opcional)</span><input id="r_cap" type="number" min="0" step="1" value="${v.capacidadAlumnos ?? ""}"></label>
@@ -1489,8 +1511,8 @@ function formProfesor(p){
 
 /** Carga de cada profesor: alumnos con asignación vigente y horas semanales de su horario. */
 function cargaProfesores(){
-  const al = new Map(alumnadoIrene().map(a => [a.id, a]));
-  return profesores().map(p => {
+  const al = new Map(alumnadoCoord().map(a => [a.id, a]));
+  return profesoras().map(p => {
     const asig = (S.rincon.asignaciones || []).filter(x => x.profesorId === p.id && vigente(x) && x.destino && (x.destino.tipo !== "alumno" || al.has(x.destino.id)));
     const alumnos = asig.filter(x => x.destino.tipo === "alumno").map(x => al.get(x.destino.id)).filter(a => a && a.estado !== "finalizado");
     const n = alumnos.length, cap = Number.isInteger(p.capacidadAlumnos) ? p.capacidadAlumnos : 0;
@@ -1514,7 +1536,7 @@ function pintarFicha(forzar = false){
   const dadas = clases.filter(c => !c.prevista);
   // Información académica, Seguimiento y Notas se quitaron a petición de Sara (el código se conserva por si se recuperan).
   const tabs = [["resumen", "Resumen"], ["perfil", "Perfil"], ["packs", "Packs"], ["historial", "Historial"],
-    ...(a.academiaId === IRENE ? [["coordinacion", "Coordinación"]] : [])];
+    ...(a.academiaId === IRENE && !misAlumnos().some(x => x.id === a.id) ? [["coordinacion", "Coordinación"]] : [])];
   const fila = c => { const r = modelo().datos.registros.get(c.eventId); return `<li class="clic" data-clase="${esc(c.eventId)}" tabindex="0"><span class="num">${fechaCorta(c.fecha)}</span><span>${cap(c.modalidad)} · ${c.minutos} min${r && r.contenido ? ` · <span class="muted">${esc(r.contenido)}</span>` : ""}${c.nota ? ` · <span class="muted">${esc(c.nota)}</span>` : ""}</span>${etiquetaConsumo(c)}</li>`; };
   let body;
   if (fichaTab === "resumen") body = `
@@ -1621,7 +1643,7 @@ function pintar(){
   v.querySelectorAll("[data-perfil]").forEach(el => { el.onclick = e => { if (e.target.closest("a")) return; abrirFicha(el.dataset.perfil, "perfil"); }; el.onkeydown = e => { if (e.key === "Enter") abrirFicha(el.dataset.perfil, "perfil"); }; });
   const pq = v.querySelector("#pq"); if (pq) pq.oninput = () => { fPerf = pq.value; render(); };
   v.querySelectorAll("[data-fcoord]").forEach(el => { el.onclick = () => abrirFicha(el.dataset.fcoord, "coordinacion"); el.onkeydown = e => { if (e.key === "Enter") abrirFicha(el.dataset.fcoord, "coordinacion"); }; });
-  v.querySelectorAll("[data-prof]").forEach(tr => { const pr = () => { const p = profById(tr.dataset.prof); if (p && puedeEscribir()) formProfesor(p); }; tr.onclick = pr; tr.onkeydown = e => { if (e.key === "Enter") pr(); }; });
+  v.querySelectorAll("[data-verprof]").forEach(tr => { tr.onclick = () => verProfesora(tr.dataset.verprof); tr.onkeydown = e => { if (e.key === "Enter") verProfesora(tr.dataset.verprof); }; });
   const nc = v.querySelector("#nuevoCoord"); if (nc) nc.onclick = () => formAlumnoCoord(null);
   const np = v.querySelector("#nuevoProf"); if (np) np.onclick = () => formProfesor(null);
   const cq = v.querySelector("#cq");
@@ -1683,7 +1705,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28n");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28o");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1702,7 +1724,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28n");
+    D = await import("./datos.js?v=2026-11-28o");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
