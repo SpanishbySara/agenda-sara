@@ -383,3 +383,7 @@ a{color:var(--burdeos)}
 .elegir{list-style:none;margin:0;padding:0;max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:6px}
 @media (max-width:640px){ .cambiar{grid-template-columns:1fr} }
 .tools .check input{min-width:0;flex:none;width:auto;max-width:none}
+.tres{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;align-items:start}
+.pila{display:flex;flex-direction:column;gap:14px}
+.propuesta h3{margin:0}
+@media (max-width:980px){ .tres{grid-template-columns:1fr} }

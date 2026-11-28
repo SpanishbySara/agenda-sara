@@ -1,7 +1,7 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28q";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28q";
-import { proponer, puntuarPareja, puntuarGrupo, claveGrupo, textoHuecos } from "./matching.js?v=2026-11-28q";
+export const VERSION = "2026-11-28r";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28r";
+import { proponer, puntuarPareja, puntuarGrupo, claveGrupo, textoHuecos } from "./matching.js?v=2026-11-28r";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -112,7 +112,7 @@ function nav(){
       ["profe-actividad", "Mi actividad docente", "chart"], ["profe-factura", "Factura del mes", "receipt"]] },
     { title: "Jefa de estudios", space: "coord", items: [
       ["coord-resumen", "Resumen de coordinación", "sun"], ["coord-alumnado", "Alumnado", "users"], ["coord-matching", "Matching y agrupaciones", "compass"],
-      ["coord-profesorado", "Profesorado", "brief"], ["coord-horarios", "Horarios y asignaciones", "clock"], ["coord-seguimiento", "Seguimiento académico", "eye"],
+      ["coord-grupos", "Parejas y grupos", "users"], ["coord-profesorado", "Profesorado", "brief"], ["coord-seguimiento", "Seguimiento académico", "eye"],
       ["coord-incidencias", "Incidencias", "flag"], ["coord-informes", "Informes", "file"]] },
     { title: "Configuración", items: [
       ["conf-academias", "Academias", "school"], ["conf-tipos", "Tipos de clase", "tag"], ["conf-niveles", "Niveles", "steps"],
@@ -522,7 +522,7 @@ function vActividad(){
 const headCoord = (title, intro, side = "") => head("Jefa de estudios · Spanish with Irene", title, intro, side, "var(--oliva)");
 let fCo = { q: "", estado: "", nivel: "", prof: "", mod: "" };
 const filaCoord = ({ a, act }) => `<tr data-fcoord="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td>
-  <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</b></td>
+  <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(act ? act.modalidad : a.modalidadPreferida) || "—")}</b>${a.soloIndividual ? `<small>Solo individual</small>` : ""}</td>
   <td><small>${esc(textoFranjas(disponibilidadDe(a.id)) || (disponibilidadDe(a.id) || {}).notas || "—")}</small></td>
   <td><span class="state st-${a.estado === "pendiente" ? "pendiente" : a.estado === "activo" ? "activo" : ["propuesta", "temporal"].includes(a.estado) ? "propuesta" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</span></td></tr>`;
 const tablaCoord = filas => `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Modalidad</th><th>Disponibilidad</th><th>Estado</th></tr></thead><tbody>${filas.map(filaCoord).join("")}</tbody></table></div>`;
@@ -534,7 +534,7 @@ function vAlumnado(){
     .sort((x, y) => nombreCompleto(x.a).localeCompare(nombreCompleto(y.a), "es"));
   const grupos = [...profesoras().map(p => ({ t: p.nombre, id: p.id, f: filas.filter(x => x.act && x.act.profesorId === p.id) })), { t: "Sin profesora asignada", id: "", f: filas.filter(x => !x.act) }].filter(g => g.f.length);
   const opt = (k, list) => list.map(([v, l]) => `<option value="${v}"${fCo[k] === v ? " selected" : ""}>${esc(l)}</option>`).join("");
-  const resumen = f => { const n = k => f.filter(x => (x.act ? x.act.modalidad : x.a.modalidadPreferida) === k).length; return [["individual", "individual"], ["pareja", "en pareja"], ["grupo", "en grupo"]].map(([k, l]) => n(k) ? `${n(k)} ${l}` : "").filter(Boolean).join(" · "); };
+  const resumen = f => { const n = k => f.filter(x => (x.act ? x.act.modalidad : x.a.modalidadPreferida) === k).length; return [["individual", "individual"], ["pareja", "en pareja"], ["grupo3", "en grupo de 3"], ["grupo4", "en grupo de 4"], ["grupo", "en grupo"]].map(([k, l]) => n(k) ? `${n(k)} ${l}` : "").filter(Boolean).join(" · "); };
   return `${aviso()}
   ${headCoord("Alumnado", "Los alumnos de las profesoras de la academia, agrupados por profesora. Tus propios alumnos no aparecen aquí: están en Mi espacio de profe.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoCoord">+ Nuevo alumno</button>` : "")}
   <div class="tools">
@@ -553,10 +553,10 @@ function vProfesorado(){
   const carga = cargaProfesores();
   return `${aviso()}
   ${headCoord("Profesorado", "Las profesoras de la academia y sus alumnos. Pulsa una profesora para ver sus alumnos y añadirle nuevos.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoProf">+ Nueva profesora</button>` : "")}
-  ${carga.length ? `<div class="twrap"><table><thead><tr><th>Profesora</th><th>Niveles</th><th>Modalidades</th><th class="n">Individual</th><th class="n">Pareja</th><th class="n">Grupo</th><th>Alumnos</th></tr></thead>
-    <tbody>${carga.map(({ p, n, cap, ind, par, gru }) => `<tr data-verprof="${p.id}" tabindex="0"><td><span class="name">${esc(p.nombre)}</span>${(p.especialidades || []).length ? `<small>${esc(p.especialidades.join(", "))}</small>` : ""}</td>
-      <td>${esc((p.niveles || []).join(", ") || "—")}</td><td>${esc((p.modalidades || []).map(x => MODALIDADES[x]).join(", ") || "—")}</td>
-      <td class="n">${ind}</td><td class="n">${par}</td><td class="n">${gru}</td>
+  ${carga.length ? `<div class="twrap"><table><thead><tr><th>Profesora</th><th>Niveles</th><th>Modalidades</th><th class="n">Individual</th><th class="n">Pareja</th><th class="n">Grupo de 3</th><th class="n">Grupo de 4</th><th>Alumnos</th></tr></thead>
+    <tbody>${carga.map(({ p, n, cap, ind, par, g3, g4 }) => `<tr data-verprof="${p.id}" tabindex="0"><td><span class="name">${esc(p.nombre)}</span>${(p.especialidades || []).length ? `<small>${esc(p.especialidades.join(", "))}</small>` : ""}</td>
+      <td>${esc((p.niveles || []).join(", ") || "—")}</td><td>${esc((p.modalidades || []).map(x => modLabel(x)).join(", ") || "—")}</td>
+      <td class="n">${ind}</td><td class="n">${par}</td><td class="n">${g3}</td><td class="n">${g4}</td>
       <td>${cap ? `<div class="load"><div class="row" style="grid-template-columns:minmax(80px,1fr) 60px"><span class="bar"><b class="${n >= cap ? "full" : ""}" style="width:${Math.min(100, Math.round(n / cap * 100))}%"></b></span><span class="num">${n}/${cap}</span></div></div>` : `<b>${n}</b>`}</td></tr>`).join("")}</tbody></table></div>`
     : `<p class="empty">Todavía no hay profesoras. Añade a Blanca con «+ Nueva profesora».</p>`}`;
 }
@@ -566,10 +566,10 @@ function verProfesora(id){
   const p = profById(id); if (!p) return;
   const filas = alumnadoCoord().map(a => ({ a, act: asignacionActual(a.id) })).filter(x => x.act && x.act.profesorId === id).sort((x, y) => nombreCompleto(x.a).localeCompare(nombreCompleto(y.a), "es"));
   const m = modal(`<div class="profhead"><div><span class="eyebrow" style="color:var(--oliva)">Profesora</span><h2>${esc(p.nombre)}</h2>
-      <p class="muted">${esc([(p.niveles || []).join(", "), (p.modalidades || []).map(x => MODALIDADES[x]).join(", "), (p.especialidades || []).join(", ")].filter(Boolean).join(" · "))}</p></div>
+      <p class="muted">${esc([(p.niveles || []).join(", "), (p.modalidades || []).map(x => modLabel(x)).join(", "), (p.especialidades || []).join(", ")].filter(Boolean).join(" · "))}</p></div>
       ${puedeEscribir() ? `<div class="headside"><button class="btn sm" type="button" id="vp_edit">Editar</button><button class="btn sm primary oliva" type="button" id="vp_add">+ Añadir alumno</button></div>` : ""}</div>
     ${p.observaciones ? `<p class="note">${esc(p.observaciones)}</p>` : ""}
-    ${filas.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Nivel</th><th>Modalidad</th><th>Estado</th></tr></thead><tbody>${filas.map(({ a, act }) => `<tr data-vpal="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(MODALIDADES[act.modalidad] || "—")}</b></td><td>${esc(ESTADOS_ALUMNO[a.estado] || "—")}</td></tr>`).join("")}</tbody></table></div>`
+    ${filas.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Nivel</th><th>Modalidad</th><th>Estado</th></tr></thead><tbody>${filas.map(({ a, act }) => `<tr data-vpal="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(act.modalidad) || "—")}</b></td><td>${esc(ESTADOS_ALUMNO[a.estado] || "—")}</td></tr>`).join("")}</tbody></table></div>`
       : `<p class="empty">Todavía no tiene alumnos. Añádelos con «+ Añadir alumno».</p>`}
     <div class="mfoot"><button type="button" class="btn ghost" data-cerrar>Cerrar</button></div>`);
   const e = m.querySelector("#vp_edit"); if (e) e.onclick = () => formProfesor(p);
@@ -584,7 +584,7 @@ function vCoordResumen(){
   const incid = (S.rincon.incidencias || []).filter(i => i.estado !== "resuelta");
   const nuevos = al.filter(a => a.creadoEn && mesKey(new Date(a.creadoEn)) === mes).length;
   const alertas = [
-    ...pend.map(a => ({ cls: "urgent", t: `${nombreCompleto(a)} espera profesor`, s: `${nivelActual(a) || "Sin nivel"} · prefiere ${(MODALIDADES[a.modalidadPreferida] || "—").toLowerCase()}${textoFranjas(disponibilidadDe(a.id)) ? " · " + textoFranjas(disponibilidadDe(a.id)) : ""}`, id: a.id })),
+    ...pend.map(a => ({ cls: "urgent", t: `${nombreCompleto(a)} espera profesor`, s: `${nivelActual(a) || "Sin nivel"} · prefiere ${(modLabel(a.modalidadPreferida) || "—").toLowerCase()}${textoFranjas(disponibilidadDe(a.id)) ? " · " + textoFranjas(disponibilidadDe(a.id)) : ""}`, id: a.id })),
     ...carga.filter(x => x.lleno).map(x => ({ cls: "", t: `${x.p.nombre} está completo`, s: `${x.n} de ${x.cap} alumnos` })),
     ...al.filter(a => a.estado === "temporal" || a.estado === "propuesta").map(a => ({ cls: "coord", t: `${nombreCompleto(a)}: ${ESTADOS_ALUMNO[a.estado].toLowerCase()}`, s: "Revisa si se confirma", id: a.id }))
   ];
@@ -615,12 +615,12 @@ const enGrupo = () => { const s = new Set(); for (const g of gruposVivos()) for 
 const propuestaDe = clave => (S.rincon.propuestas || []).find(p => p.clave === clave);
 const perfilMatch = a => { const act = asignacionActual(a.id), d = disponibilidadDe(a.id);
   return { id: a.id, nombre: nombreCompleto(a), nivel: nivelActual(a), edad: Number.isInteger(a.edad) ? a.edad : null, franjas: (d && d.franjas) || [],
-    profesorId: act ? act.profesorId : null, modalidad: act ? act.modalidad : a.modalidadPreferida, texto: [a.objetivoPrincipal, a.intereses].filter(Boolean).join(" ") }; };
-let mTam = 2, mProf = "", mTodos = false;
+    profesorId: act ? act.profesorId : null, modalidad: act ? act.modalidad : a.modalidadPreferida, soloIndividual: !!a.soloIndividual, texto: [a.objetivoPrincipal, a.intereses].filter(Boolean).join(" ") }; };
+let mTam = 2, mProf = "";
 function candidatosMatching(){
   const ocupados = enGrupo();
   return alumnadoCoord().filter(a => !["finalizado", "pausa"].includes(a.estado) && !ocupados.has(a.id)).map(perfilMatch)
-    .filter(x => (!mProf || x.profesorId === mProf || (mProf === "-" && !x.profesorId)) && (mTodos || x.modalidad === "pareja" || x.modalidad === "grupo"));
+    .filter(x => !x.soloIndividual && (!mProf || x.profesorId === mProf || (mProf === "-" && !x.profesorId)));
 }
 const COMPAT = { alta: ["ok", "Alta compatibilidad"], media: ["warn", "Compatibilidad media"], baja: ["urg", "Compatibilidad baja"] };
 function tarjetaPropuesta(pr, guardada){
@@ -637,15 +637,19 @@ function tarjetaPropuesta(pr, guardada){
   </article>`;
 }
 let propuestasVista = new Map();
-function vMatching(){
-  const cand = candidatosMatching(), porId = new Map(alumnadoCoord().map(a => [a.id, perfilMatch(a)]));
-  const excluir = new Set((S.rincon.propuestas || []).filter(p => ["rechazada", "aprobada", "guardada"].includes(p.estado)).map(p => p.clave));
-  const lista = proponer(cand, mTam, { excluir, limite: 30 });
-  const guardadas = (S.rincon.propuestas || []).filter(p => p.estado === "guardada").map(p => {
+function propuestasGuardadas(){
+  const porId = new Map(alumnadoCoord().map(a => [a.id, perfilMatch(a)]));
+  return (S.rincon.propuestas || []).filter(p => p.estado === "guardada").map(p => {
     const ms = p.miembros.map(id => porId.get(id)).filter(Boolean);
     if (ms.length !== p.miembros.length) return null;
     return { clave: p.clave, miembros: ms, ...(ms.length === 2 ? puntuarPareja(ms[0], ms[1]) : puntuarGrupo(ms)) };
   }).filter(Boolean);
+}
+function vMatching(){
+  const cand = candidatosMatching(), porId = new Map(alumnadoCoord().map(a => [a.id, perfilMatch(a)]));
+  const excluir = new Set((S.rincon.propuestas || []).filter(p => ["rechazada", "aprobada", "guardada"].includes(p.estado)).map(p => p.clave));
+  const lista = proponer(cand, mTam, { excluir, limite: 30 });
+  const guardadas = propuestasGuardadas();
   propuestasVista = new Map([...lista, ...guardadas].map(x => [x.clave, x]));
   const grupos = gruposVivos().sort((a, b) => (a.estado === "prueba" ? 0 : 1) - (b.estado === "prueba" ? 0 : 1));
   const al = new Map(alumnadoIrene().map(a => [a.id, a]));
@@ -654,17 +658,39 @@ function vMatching(){
   <div class="tools">
     <div class="seg" role="group" aria-label="Tamaño">${[[2, "Parejas"], [3, "Grupos de 3"], [4, "Grupos de 4"]].map(([n, l]) => `<button type="button" data-mtam="${n}" aria-pressed="${mTam === n}">${l}</button>`).join("")}</div>
     <select id="mprof" aria-label="Profesora"><option value="">Todas las profesoras</option><option value="-"${mProf === "-" ? " selected" : ""}>Sin profesora</option>${profesoras().map(p => `<option value="${p.id}"${mProf === p.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select>
-    <label class="check"><input type="checkbox" id="mtodos"${mTodos ? " checked" : ""}> Incluir alumnos en individual</label>
   </div>
-  ${grupos.length ? `<section class="section"><header><h2>Parejas y grupos formados</h2><span class="muted" style="font-size:.8rem">${grupos.length}</span></header>
-    <ul class="alerts">${grupos.map(g => `<li><span class="dot ${g.estado === "prueba" ? "" : "info"}"></span><div><b>${esc(g.nombre)}</b> <span class="pill ${g.estado === "prueba" ? "warn" : "ok"}">${g.estado === "prueba" ? "De prueba" : "Definitivo"}</span>
-      <small>${esc((g.miembros || []).filter(m => !m.hasta).map(m => al.get(m.alumnoId) ? nombreCompleto(al.get(m.alumnoId)) : "?").join(", "))} · ${esc(nombreProf(g.profesorId))}${g.horario ? " · " + esc(g.horario) : ""}</small></div>
-      ${puedeEscribir() ? `<span class="packacts">${g.estado === "prueba" ? `<button class="link" type="button" data-gconfirmar="${g.id}">Confirmar definitivo</button>` : ""}<button class="link danger-l" type="button" data-gdisolver="${g.id}">Disolver</button></span>` : "<span></span>"}</li>`).join("")}</ul></section>` : ""}
-  ${guardadas.length ? `<section class="section"><header><h2>Guardadas para más adelante</h2><span class="muted" style="font-size:.8rem">${guardadas.length}</span></header><div class="propuestas">${guardadas.map(g => tarjetaPropuesta(g, true)).join("")}</div></section>` : ""}
+  ${guardadas.length + grupos.length ? `<p class="note">${plural(guardadas.length, "propuesta guardada", "propuestas guardadas")} · ${plural(grupos.filter(g => g.estado === "prueba").length, "en prueba", "en prueba")} · ${plural(grupos.filter(g => g.estado === "activo").length, "fija", "fijas")}. <a href="#coord-grupos">Ver parejas y grupos</a></p>` : ""}
   <section class="section"><header><h2>Propuestas</h2><span class="muted" style="font-size:.8rem">${plural(cand.length, "alumno disponible", "alumnos disponibles")}</span></header>
     ${lista.length ? `<div class="propuestas">${lista.map(x => tarjetaPropuesta(x)).join("")}</div>`
-      : `<p class="empty">${cand.length < mTam ? `Hacen falta al menos ${mTam} alumnos sin pareja ni grupo${mTodos ? "" : " que vayan en pareja o grupo (marca «Incluir alumnos en individual» para ver a todos)"}.` : "No hay más propuestas nuevas."}</p>`}</section>
+      : `<p class="empty">${cand.length < mTam ? `Hacen falta al menos ${mTam} alumnos sin pareja ni grupo. Los marcados como «solo clases individuales» no entran.` : "No hay más propuestas nuevas."}</p>`}</section>
   <p class="note">Puntos: nivel (35), disponibilidad (30), edad (15), profesora (10) y objetivos o aficiones en común (10). Si no coinciden en ningún hueco, la compatibilidad es baja; si falta la disponibilidad de alguien, como mucho media.</p>`;
+}
+
+const tipoGrupo = g => g.tipo === "pareja" ? "Pareja" : g.tamano ? `Grupo de ${g.tamano}` : `Grupo de ${(g.miembros || []).filter(m => !m.hasta).length}`;
+function tarjetaGrupo(g){
+  const al = new Map(alumnadoIrene().map(a => [a.id, a]));
+  const ms = (g.miembros || []).filter(m => !m.hasta || g.estado === "finalizado").map(m => al.get(m.alumnoId)).filter(Boolean);
+  return `<article class="propuesta">
+    <header><span class="pill ${g.estado === "prueba" ? "warn" : g.estado === "activo" ? "ok" : "mute"}">${tipoGrupo(g)}</span><span class="muted" style="font-size:.8rem">${esc(nombreProf(g.profesorId))}</span></header>
+    <h3>${esc(g.nombre)}</h3>
+    <ul class="miembros">${ms.map(a => `<li><b>${esc(nombreCompleto(a))}</b><span class="muted">${esc([nivelActual(a), Number.isInteger(a.edad) ? a.edad + " años" : ""].filter(Boolean).join(" · "))}</span></li>`).join("")}</ul>
+    <p class="muted" style="font-size:.82rem;margin:0">${g.horario ? esc(g.horario) + " · " : ""}desde ${fechaCorta((g.miembros || [])[0]?.desde || hoyK())}</p>
+    ${puedeEscribir() && g.estado !== "finalizado" ? `<div class="packacts">${g.estado === "prueba" ? `<button class="btn sm primary oliva" type="button" data-gconfirmar="${g.id}">Confirmar como fija</button>` : ""}<button class="link danger-l" type="button" data-gdisolver="${g.id}">Disolver</button></div>` : ""}
+  </article>`;
+}
+function vGrupos(){
+  const guard = propuestasGuardadas();
+  for (const x of guard) propuestasVista.set(x.clave, x);
+  const g = S.rincon.grupos || [], prueba = g.filter(x => x.estado === "prueba"), fijos = g.filter(x => x.estado === "activo"), fin = g.filter(x => x.estado === "finalizado");
+  const col = (t, n, html, vacio) => `<section class="section col-grupos"><header><h2>${t}</h2><span class="muted" style="font-size:.8rem">${n}</span></header>${n ? `<div class="pila">${html}</div>` : `<p class="empty">${vacio}</p>`}</section>`;
+  return `${aviso()}
+  ${headCoord("Parejas y grupos", "Cómo va cada agrupación: propuestas que guardaste, en prueba y fijas.", `<button class="btn primary oliva" type="button" data-go="coord-matching">Buscar nuevas</button>`)}
+  <div class="tres">
+    ${col("Propuestas", guard.length, guard.map(x => tarjetaPropuesta(x, true)).join(""), "Guarda propuestas desde Matching para verlas aquí.")}
+    ${col("En prueba", prueba.length, prueba.map(tarjetaGrupo).join(""), "Ninguna pareja ni grupo en prueba.")}
+    ${col("Fijos", fijos.length, fijos.map(tarjetaGrupo).join(""), "Todavía no hay parejas ni grupos fijos.")}
+  </div>
+  ${fin.length ? `<details class="ayuda"><summary>Disueltos (${fin.length})</summary><div class="pila" style="margin-top:10px">${fin.map(tarjetaGrupo).join("")}</div></details>` : ""}`;
 }
 
 /** Aprobar: crea la pareja o el grupo (de prueba o definitivo) y asigna profesora y modalidad a cada alumno. */
@@ -686,8 +712,8 @@ function formAprobar(pr){
     const err = m.querySelector("#f_err"), nombre = m.querySelector("#ap_nombre").value.trim(), profesorId = m.querySelector("#ap_prof").value;
     if (!nombre) { err.textContent = "Escribe un nombre."; err.hidden = false; return; }
     if (!profesorId) { err.textContent = "Añade primero a la profesora en «Profesorado»."; err.hidden = false; return; }
-    const hoy = hoyK(), gid = D.nuevoId("grupos", "gr"), modalidad = tam === 2 ? "pareja" : "grupo", niveles = pr.miembros.map(x => x.nivel).filter(Boolean);
-    const cambios = [{ coleccion: "grupos", id: gid, nuevo: true, datos: { tipo: modalidad, nombre, academiaId: IRENE, nivel: niveles.sort()[0] || "", profesorId,
+    const hoy = hoyK(), gid = D.nuevoId("grupos", "gr"), modalidad = tam === 2 ? "pareja" : "grupo" + tam, niveles = pr.miembros.map(x => x.nivel).filter(Boolean);
+    const cambios = [{ coleccion: "grupos", id: gid, nuevo: true, datos: { tipo: tam === 2 ? "pareja" : "grupo", tamano: tam, nombre, academiaId: IRENE, nivel: niveles.sort()[0] || "", profesorId,
       estado: m.querySelector("#ap_prueba").checked ? "prueba" : "activo", horario: m.querySelector("#ap_hor").value.trim(), propuestaClave: pr.clave,
       miembros: pr.miembros.map(x => ({ alumnoId: x.id, desde: hoy, hasta: null })), creadoEn: Date.now() } }];
     const prev = propuestaDe(pr.clave);
@@ -696,9 +722,9 @@ function formAprobar(pr){
     for (const x of pr.miembros) {
       const a = alumnadoIrene().find(y => y.id === x.id); if (!a) continue;
       cambios.push(...cambiosAsignar(a, profesorId, modalidad, null));
-      if (["pendiente", "propuesta"].includes(a.estado)) cambios.push({ coleccion: "alumnos", id: a.id, datos: { ...sinId(a), estado: "activo", modalidadPreferida: modalidad } });
+      cambios.push({ coleccion: "alumnos", id: a.id, datos: { ...sinId(a), estado: ["pendiente", "propuesta"].includes(a.estado) ? "activo" : a.estado, modalidadPreferida: modalidad, soloIndividual: false } });
     }
-    guardar(cambios, "Aprobar " + modalidad, `${nombre} ${m.querySelector("#ap_prueba").checked ? "creado como prueba" : "creado"}.`);
+    guardar(cambios, "Aprobar " + modLabel(modalidad).toLowerCase(), `${nombre} ${m.querySelector("#ap_prueba").checked ? "creado como prueba" : "creado"}.`);
   };
 }
 
@@ -732,7 +758,7 @@ function formCambiar(pr){
 
 function accionGrupo(id, tipo){
   const g = (S.rincon.grupos || []).find(x => x.id === id); if (!g) return;
-  if (tipo === "confirmar") guardar([{ coleccion: "grupos", id, datos: { ...sinId(g), estado: "activo" } }], "Confirmar grupo", `${g.nombre}: confirmado como definitivo.`);
+  if (tipo === "confirmar") guardar([{ coleccion: "grupos", id, datos: { ...sinId(g), estado: "activo" } }], "Confirmar grupo", `${g.nombre}: ya es fijo.`);
   else confirmar("Disolver", `«${esc(g.nombre)}» dejará de estar activo. Sus alumnos volverán a aparecer en las propuestas. Su historial se conserva.`, "Disolver",
     motivo => guardar([{ coleccion: "grupos", id, datos: { ...sinId(g), estado: "finalizado", miembros: (g.miembros || []).map(m => m.hasta ? m : { ...m, hasta: hoyK() }) } }], motivo || "Disolver grupo", `${g.nombre} disuelto.`), true);
 }
@@ -777,16 +803,17 @@ function baseInicial(){
   out.push(
     ...TARIFAS_BASE,
     { coleccion: "config", id: "general", nuevo: true, datos: { umbrales: { renovacion: 3, urgente: 1 }, niveles: NIVELES, nivelesDestrezas: NIVELES,
-      destrezas: ["CL", "CA", "EE", "EO", "IO"], modalidades: ["individual", "pareja", "grupo"] } }
+      destrezas: ["CL", "CA", "EE", "EO", "IO"], modalidades: ["individual", "pareja", "grupo3", "grupo4"] } }
   );
   if (!(S.rincon.profesores || []).some(p => p.id === YO))
-    out.push({ coleccion: "profesores", id: YO, nuevo: true, datos: { nombre: "Sara", esYo: true, academias: [IRE, LSI], niveles: NIVELES, modalidades: ["individual", "pareja", "grupo"], activo: true } });
+    out.push({ coleccion: "profesores", id: YO, nuevo: true, datos: { nombre: "Sara", esYo: true, academias: [IRE, LSI], niveles: NIVELES, modalidades: ["individual", "pareja", "grupo3", "grupo4"], activo: true } });
   return out;
 }
 
 async function guardar(cambios, motivo, ok){
   try { await D.guardar(cambios, motivo); cerrarModal(); if (ok) flash(ok); }
   catch (e) {
+    console.error("No se pudo guardar:", e);
     const err = document.querySelector("#f_err");
     const msg = D.esPermisoDenegado && D.esPermisoDenegado(e) ? "No hay permiso para guardar. ¿Están publicadas las reglas nuevas en Firebase?" : "No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.";
     if (err) { err.textContent = msg; err.hidden = false; } else flash(msg);
@@ -1488,7 +1515,9 @@ function vPerfiles(){
 /* ================= coordinación: profesorado, asignaciones y disponibilidad ================= */
 const IRENE = "spanish-with-irene";
 const DIAS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-const MODALIDADES = { individual: "Individual", pareja: "Pareja", grupo: "Grupo" };
+const MODALIDADES = { individual: "Individual", pareja: "Pareja", grupo3: "Grupo de 3", grupo4: "Grupo de 4" };
+const modLabel = k => MODALIDADES[k] || (k === "grupo" ? "Grupo" : "");
+const esGrupo = k => k === "grupo" || k === "grupo3" || k === "grupo4";
 const profesores = () => (S.rincon.profesores || []).filter(p => p.activo !== false).sort((a, b) => (b.esYo ? 1 : 0) - (a.esYo ? 1 : 0) || a.nombre.localeCompare(b.nombre, "es"));
 const profById = id => (S.rincon.profesores || []).find(p => p.id === id) || (id === YO ? { id: YO, nombre: "Sara", esYo: true } : null);
 const nombreProf = id => { const p = profById(id); return p ? (p.esYo ? "Sara (yo)" : p.nombre) : "—"; };
@@ -1555,7 +1584,8 @@ function formAlumnoCoord(alumno, preset = {}){
       ${nuevo ? `<label class="field">Nombre<input id="c_nombre" maxlength="60"></label><label class="field">Apellidos<input id="c_apellidos" maxlength="80"></label>` : ""}
       <label class="field">Edad<input id="c_edad" type="number" min="3" max="99" step="1" value="${a.edad ?? ""}"></label>
       <label class="field">Nivel inicial<select id="c_ini"><option value="">Sin nivel</option>${NIVELES.map(n => `<option${n === a.nivelInicial ? " selected" : ""}>${n}</option>`).join("")}</select></label>
-      <label class="field">Modalidad<select id="c_mod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${k === (act ? act.modalidad : a.modalidadPreferida) ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="field">Modalidad<select id="c_mod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${k === (act ? act.modalidad : a.modalidadPreferida) || (k === "grupo3" && (act ? act.modalidad : a.modalidadPreferida) === "grupo") ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="check full" id="c_solo_box"><input type="checkbox" id="c_solo"${a.soloIndividual ? " checked" : ""}> Solo clases individuales: no quiere pareja ni grupo (no aparecerá en el matching)</label>
       <label class="field">Estado<select id="c_estado">${Object.entries(ESTADOS_ALUMNO).map(([k, l]) => `<option value="${k}"${k === a.estado ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="field">Profesor asignado<select id="c_prof"><option value="">Sin asignar</option>${profesoras().map(p => `<option value="${p.id}"${act && act.profesorId === p.id ? " selected" : ""}>${esc(p.esYo ? "Sara (yo)" : p.nombre)}</option>`).join("")}</select></label>
       <fieldset class="field full"><legend>Disponibilidad <span class="muted">· la del formulario de entrada, en hora de España</span></legend>${editorFranjas("c_disp", disp && disp.franjas)}
@@ -1565,7 +1595,9 @@ function formAlumnoCoord(alumno, preset = {}){
       <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
     </form>`);
   conectarFranjas(m);
-  const prof = m.querySelector("#c_prof"), est = m.querySelector("#c_estado");
+  const prof = m.querySelector("#c_prof"), est = m.querySelector("#c_estado"), modSel = m.querySelector("#c_mod");
+  const syncSolo = () => { m.querySelector("#c_solo_box").hidden = modSel.value !== "individual"; };
+  modSel.addEventListener("change", syncSolo); syncSolo();
   prof.onchange = () => { if (prof.value && est.value === "pendiente") est.value = "activo"; if (!prof.value && est.value === "activo") est.value = "pendiente"; };
   m.querySelector("#fac").onsubmit = ev => {
     ev.preventDefault();
@@ -1574,7 +1606,7 @@ function formAlumnoCoord(alumno, preset = {}){
     if (edad != null && (!Number.isInteger(edad) || edad < 3 || edad > 99)) return fail("La edad tiene que ser un número entre 3 y 99.");
     const fr = leerFranjas(m, "c_disp"); if (fr.error) return fail(fr.error);
     const datos = { ...(alumno ? sinId(alumno) : { academiaId: IRENE, modoPago: "pack", lenguaMaterna: "", clasesPreviasTarifa: null, creadoEn: Date.now() }),
-      edad, nivelInicial: m.querySelector("#c_ini").value, modalidadPreferida: m.querySelector("#c_mod").value, estado: est.value, observacionesCoord: m.querySelector("#c_obs").value.trim() };
+      edad, nivelInicial: m.querySelector("#c_ini").value, modalidadPreferida: modSel.value, soloIndividual: modSel.value === "individual" && m.querySelector("#c_solo").checked, estado: est.value, observacionesCoord: m.querySelector("#c_obs").value.trim() };
     if (nuevo) { datos.nombre = m.querySelector("#c_nombre").value.trim(); datos.apellidos = m.querySelector("#c_apellidos").value.trim(); if (!datos.nombre) return fail("Escribe el nombre del alumno."); }
     if (prof.value && est.value === "pendiente") return fail("Si tiene profesor asignado, el estado no puede ser «Pendiente de asignación».");
     const id = alumno ? alumno.id : D.nuevoId("alumnos", "al"), al = { ...datos, id };
@@ -1591,19 +1623,19 @@ function tabCoordinacion(a){
   return `
     <dl class="facts">
       <div><dt>Estado</dt><dd>${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</dd></div><div><dt>Edad</dt><dd>${a.edad ?? "—"}</dd></div>
-      <div><dt>Nivel</dt><dd>${esc(nivelActual(a) || "—")}</dd></div><div><dt>Modalidad</dt><dd>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</dd></div>
+      <div><dt>Nivel</dt><dd>${esc(nivelActual(a) || "—")}</dd></div><div><dt>Modalidad</dt><dd>${esc(modLabel(act ? act.modalidad : a.modalidadPreferida) || "—")}${a.soloIndividual ? " · solo individual" : ""}</dd></div>
       <div><dt>Profesora</dt><dd>${act ? esc(nombreProf(act.profesorId)) : "Sin asignar"}</dd></div>
       <div class="full"><dt>Disponibilidad</dt><dd>${esc(textoFranjas(disp) || "Sin indicar")}${disp && disp.notas ? `<br><span class="muted">${esc(disp.notas)}</span>` : ""}</dd></div>
     </dl>
     ${a.observacionesCoord ? `<p class="note">${esc(a.observacionesCoord)}</p>` : ""}
     ${puedeEscribir() ? `<button class="btn sm" type="button" id="editCoord" style="align-self:flex-start">Editar coordinación</button>` : ""}
     <section class="section"><header><h3>Historial de profesores</h3></header>
-      ${hist.length ? `<ul class="hist">${hist.map(x => `<li><span class="num">${x.desde ? fechaCorta(x.desde) : "—"}</span><span>${esc(nombreProf(x.profesorId))} · ${esc(MODALIDADES[x.modalidad] || "")}</span><span class="muted">${vigente(x) ? "Actual" : "hasta " + fechaCorta(x.hasta)}</span></li>`).join("")}</ul>` : `<p class="empty">Sin asignaciones.</p>`}</section>`;
+      ${hist.length ? `<ul class="hist">${hist.map(x => `<li><span class="num">${x.desde ? fechaCorta(x.desde) : "—"}</span><span>${esc(nombreProf(x.profesorId))} · ${esc(modLabel(x.modalidad) || "")}</span><span class="muted">${vigente(x) ? "Actual" : "hasta " + fechaCorta(x.hasta)}</span></li>`).join("")}</ul>` : `<p class="empty">Sin asignaciones.</p>`}</section>`;
 }
 
 /** Ficha de profesor. */
 function formProfesor(p){
-  const nuevo = !p, v = p || { nombre: "", especialidades: [], niveles: NIVELES.slice(), modalidades: ["individual", "pareja", "grupo"], capacidadAlumnos: null, observaciones: "", activo: true };
+  const nuevo = !p, v = p || { nombre: "", especialidades: [], niveles: NIVELES.slice(), modalidades: ["individual", "pareja", "grupo3", "grupo4"], capacidadAlumnos: null, observaciones: "", activo: true };
   const m = modal(`
     <h2>${nuevo ? "Nueva profesora" : esc(v.esYo ? "Sara (yo)" : v.nombre)}</h2>
     <form id="fpr" class="fgrid" novalidate>
@@ -1640,8 +1672,8 @@ function cargaProfesores(){
     const asig = (S.rincon.asignaciones || []).filter(x => x.profesorId === p.id && vigente(x) && x.destino && (x.destino.tipo !== "alumno" || al.has(x.destino.id)));
     const alumnos = asig.filter(x => x.destino.tipo === "alumno").map(x => al.get(x.destino.id)).filter(a => a && a.estado !== "finalizado");
     const n = alumnos.length, cap = Number.isInteger(p.capacidadAlumnos) ? p.capacidadAlumnos : 0;
-    const ind = asig.filter(x => x.modalidad === "individual").length, par = asig.filter(x => x.modalidad === "pareja").length, gru = asig.filter(x => x.modalidad === "grupo").length;
-    return { p, alumnos, n, cap, ind, par, gru, lleno: !!cap && n >= cap };
+    const cuenta = k => asig.filter(x => x.modalidad === k).length;
+    return { p, alumnos, n, cap, ind: cuenta("individual"), par: cuenta("pareja"), g3: cuenta("grupo3") + cuenta("grupo"), g4: cuenta("grupo4"), lleno: !!cap && n >= cap };
   });
 }
 
@@ -1720,7 +1752,7 @@ function pintarFicha(forzar = false){
 
 /* ================= router y pantallas ================= */
 const VISTAS = { inicio: vInicio, calendario: vCalendario, "profe-resumen": vProfeResumen, "profe-alumnos": vProfeAlumnos, "profe-vincular": vVincular,
-  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura, "profe-seguimiento": vSeguimiento, "profe-actividad": vActividad, "profe-perfiles": vPerfiles, "coord-resumen": vCoordResumen, "coord-alumnado": vAlumnado, "coord-profesorado": vProfesorado, "coord-matching": vMatching };
+  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura, "profe-seguimiento": vSeguimiento, "profe-actividad": vActividad, "profe-perfiles": vPerfiles, "coord-resumen": vCoordResumen, "coord-alumnado": vAlumnado, "coord-profesorado": vProfesorado, "coord-matching": vMatching, "coord-grupos": vGrupos };
 
 /** Agrupa los datos que llegan de golpe (por ejemplo al volver a la ventana) en un solo redibujado. */
 let renderPendiente = false;
@@ -1766,7 +1798,6 @@ function pintar(){
   const ct = v.querySelector("#confirmarTipos"); if (ct) ct.onclick = () => guardar(baseInicial(), "Configuración inicial", "Configuración guardada: academias, tarifas y avisos.");
   v.querySelectorAll("[data-mtam]").forEach(b => b.onclick = () => { mTam = Number(b.dataset.mtam); render(); });
   const mp = v.querySelector("#mprof"); if (mp) mp.onchange = () => { mProf = mp.value; render(); };
-  const mt = v.querySelector("#mtodos"); if (mt) mt.onchange = () => { mTodos = mt.checked; render(); };
   const prop = k => propuestasVista.get(k);
   v.querySelectorAll("[data-maprobar]").forEach(b => b.onclick = () => formAprobar(prop(b.dataset.maprobar)));
   v.querySelectorAll("[data-mguardar]").forEach(b => b.onclick = () => decidirPropuesta(prop(b.dataset.mguardar), "guardada", "Guardada para más adelante."));
@@ -1840,7 +1871,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28q");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28r");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1859,7 +1890,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28q");
+    D = await import("./datos.js?v=2026-11-28r");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
