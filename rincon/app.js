@@ -1,7 +1,7 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28s";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28s";
-import { proponer, puntuarPareja, puntuarGrupo, claveGrupo, textoHuecos } from "./matching.js?v=2026-11-28s";
+export const VERSION = "2026-11-28t";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28t";
+import { proponer, puntuarPareja, puntuarGrupo, claveGrupo, textoHuecos } from "./matching.js?v=2026-11-28t";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -522,7 +522,7 @@ function vActividad(){
 const headCoord = (title, intro, side = "") => head("Jefa de estudios · Spanish with Irene", title, intro, side, "var(--oliva)");
 let fCo = { q: "", estado: "", nivel: "", prof: "", mod: "" };
 const filaCoord = ({ a, act }) => `<tr data-fcoord="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td>
-  <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(act ? act.modalidad : a.modalidadPreferida) || "—")}</b>${a.soloIndividual ? `<small>Solo individual</small>` : ""}${textoCompaneros(a, act ? act.modalidad : a.modalidadPreferida) ? `<small class="${companeros(a.id) ? "con" : "sincon"}">${esc(textoCompaneros(a, act ? act.modalidad : a.modalidadPreferida))}</small>` : ""}</td>
+  <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(modalidadDe(a)) || "—")}</b>${a.soloIndividual ? `<small>Solo individual</small>` : ""}${textoCompaneros(a) ? `<small class="${companeros(a.id) ? "con" : "sincon"}">${esc(textoCompaneros(a))}</small>` : ""}</td>
   <td><small>${esc(textoFranjas(disponibilidadDe(a.id)) || (disponibilidadDe(a.id) || {}).notas || "—")}</small></td>
   <td><span class="state st-${a.estado === "pendiente" ? "pendiente" : a.estado === "activo" ? "activo" : ["propuesta", "temporal"].includes(a.estado) ? "propuesta" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</span></td></tr>`;
 const tablaCoord = filas => `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Modalidad</th><th>Disponibilidad</th><th>Estado</th></tr></thead><tbody>${filas.map(filaCoord).join("")}</tbody></table></div>`;
@@ -530,11 +530,11 @@ function vAlumnado(){
   const todos = alumnadoCoord();
   const filas = todos.map(a => ({ a, act: asignacionActual(a.id) })).filter(({ a, act }) =>
     (!fCo.q || nombreCompleto(a).toLowerCase().includes(fCo.q.toLowerCase())) && (!fCo.estado || a.estado === fCo.estado) && (!fCo.nivel || nivelActual(a) === fCo.nivel)
-    && (!fCo.prof || (fCo.prof === "-" ? !act : act && act.profesorId === fCo.prof)) && (!fCo.mod || (act ? act.modalidad : a.modalidadPreferida) === fCo.mod))
+    && (!fCo.prof || (fCo.prof === "-" ? !act : act && act.profesorId === fCo.prof)) && (!fCo.mod || modalidadDe(a) === fCo.mod))
     .sort((x, y) => nombreCompleto(x.a).localeCompare(nombreCompleto(y.a), "es"));
   const grupos = [...profesoras().map(p => ({ t: p.nombre, id: p.id, f: filas.filter(x => x.act && x.act.profesorId === p.id) })), { t: "Sin profesora asignada", id: "", f: filas.filter(x => !x.act) }].filter(g => g.f.length);
   const opt = (k, list) => list.map(([v, l]) => `<option value="${v}"${fCo[k] === v ? " selected" : ""}>${esc(l)}</option>`).join("");
-  const resumen = f => { const n = k => f.filter(x => (x.act ? x.act.modalidad : x.a.modalidadPreferida) === k).length; return [["individual", "individual"], ["pareja", "en pareja"], ["grupo3", "en grupo de 3"], ["grupo4", "en grupo de 4"], ["grupo", "en grupo"]].map(([k, l]) => n(k) ? `${n(k)} ${l}` : "").filter(Boolean).join(" · "); };
+  const resumen = f => { const n = k => f.filter(x => modalidadDe(x.a) === k).length; return [["individual", "individual"], ["pareja", "en pareja"], ["grupo3", "en grupo de 3"], ["grupo4", "en grupo de 4"], ["grupo", "en grupo"]].map(([k, l]) => n(k) ? `${n(k)} ${l}` : "").filter(Boolean).join(" · "); };
   return `${aviso()}
   ${headCoord("Alumnado", "Los alumnos de las profesoras de la academia, agrupados por profesora. Tus propios alumnos no aparecen aquí: están en Mi espacio de profe.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoCoord">+ Nuevo alumno</button>` : "")}
   <div class="tools">
@@ -569,7 +569,7 @@ function verProfesora(id){
       <p class="muted">${esc([(p.niveles || []).join(", "), (p.modalidades || []).map(x => modLabel(x)).join(", "), (p.especialidades || []).join(", ")].filter(Boolean).join(" · "))}</p></div>
       ${puedeEscribir() ? `<div class="headside"><button class="btn sm" type="button" id="vp_edit">Editar</button><button class="btn sm primary oliva" type="button" id="vp_add">+ Añadir alumno</button></div>` : ""}</div>
     ${p.observaciones ? `<p class="note">${esc(p.observaciones)}</p>` : ""}
-    ${filas.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Nivel</th><th>Modalidad</th><th>Estado</th></tr></thead><tbody>${filas.map(({ a, act }) => `<tr data-vpal="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(act.modalidad) || "—")}</b>${textoCompaneros(a, act.modalidad) ? `<small>${esc(textoCompaneros(a, act.modalidad))}</small>` : ""}</td><td>${esc(ESTADOS_ALUMNO[a.estado] || "—")}</td></tr>`).join("")}</tbody></table></div>`
+    ${filas.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Nivel</th><th>Modalidad</th><th>Estado</th></tr></thead><tbody>${filas.map(({ a, act }) => `<tr data-vpal="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span></td><td>${esc(nivelActual(a) || "—")}</td><td><b>${esc(modLabel(modalidadDe(a)) || "—")}</b>${textoCompaneros(a) ? `<small>${esc(textoCompaneros(a))}</small>` : ""}</td><td>${esc(ESTADOS_ALUMNO[a.estado] || "—")}</td></tr>`).join("")}</tbody></table></div>`
       : `<p class="empty">Todavía no tiene alumnos. Añádelos con «+ Añadir alumno».</p>`}
     <div class="mfoot"><button type="button" class="btn ghost" data-cerrar>Cerrar</button></div>`);
   const e = m.querySelector("#vp_edit"); if (e) e.onclick = () => formProfesor(p);
@@ -584,7 +584,7 @@ function vCoordResumen(){
   const incid = (S.rincon.incidencias || []).filter(i => i.estado !== "resuelta");
   const nuevos = al.filter(a => a.creadoEn && mesKey(new Date(a.creadoEn)) === mes).length;
   const alertas = [
-    ...pend.map(a => ({ cls: "urgent", t: `${nombreCompleto(a)} espera profesor`, s: `${nivelActual(a) || "Sin nivel"} · prefiere ${(modLabel(a.modalidadPreferida) || "—").toLowerCase()}${textoFranjas(disponibilidadDe(a.id)) ? " · " + textoFranjas(disponibilidadDe(a.id)) : ""}`, id: a.id })),
+    ...pend.map(a => ({ cls: "urgent", t: `${nombreCompleto(a)} espera profesor`, s: `${nivelActual(a) || "Sin nivel"} ${a.soloIndividual ? " · solo individual" : ""}${textoFranjas(disponibilidadDe(a.id)) ? " · " + textoFranjas(disponibilidadDe(a.id)) : ""}`, id: a.id })),
     ...carga.filter(x => x.lleno).map(x => ({ cls: "", t: `${x.p.nombre} está completo`, s: `${x.n} de ${x.cap} alumnos` })),
     ...al.filter(a => a.estado === "temporal" || a.estado === "propuesta").map(a => ({ cls: "coord", t: `${nombreCompleto(a)}: ${ESTADOS_ALUMNO[a.estado].toLowerCase()}`, s: "Revisa si se confirma", id: a.id }))
   ];
@@ -615,7 +615,7 @@ const enGrupo = () => { const s = new Set(); for (const g of gruposVivos()) for 
 const propuestaDe = clave => (S.rincon.propuestas || []).find(p => p.clave === clave);
 const perfilMatch = a => { const act = asignacionActual(a.id), d = disponibilidadDe(a.id);
   return { id: a.id, nombre: nombreCompleto(a), nivel: nivelActual(a), edad: Number.isInteger(a.edad) ? a.edad : null, franjas: (d && d.franjas) || [],
-    profesorId: act ? act.profesorId : null, modalidad: act ? act.modalidad : a.modalidadPreferida, soloIndividual: !!a.soloIndividual, texto: [a.objetivoPrincipal, a.intereses].filter(Boolean).join(" ") }; };
+    profesorId: act ? act.profesorId : null, modalidad: modalidadDe(a), soloIndividual: !!a.soloIndividual, texto: [a.objetivoPrincipal, a.intereses].filter(Boolean).join(" ") }; };
 let mTam = 2, mProf = "";
 function candidatosMatching(){
   const ocupados = enGrupo();
@@ -676,10 +676,18 @@ function companeros(alumnoId){
 }
 const nombresY = l => l.length <= 1 ? (l[0] || "") : l.slice(0, -1).join(", ") + " y " + l[l.length - 1];
 /** Texto corto: «con David (en prueba)» o «sin compañero registrado». */
-function textoCompaneros(a, modalidad){
+function textoCompaneros(a){
   const c = companeros(a.id);
   if (c) return `con ${nombresY(c.otros.map(x => x.nombre))}${c.g.estado === "prueba" ? " (en prueba)" : ""}`;
-  return modalidad && modalidad !== "individual" ? "sin compañero registrado" : "";
+  return "";
+}
+/** Modalidad calculada: pareja o grupo si está en uno vivo (en prueba o fijo); si no, individual. */
+function modalidadDe(a){
+  const c = companeros(a.id);
+  if (!c) return "individual";
+  if (c.g.tipo === "pareja") return "pareja";
+  const n = c.g.tamano || (c.otros.length + 1);
+  return n >= 4 ? "grupo4" : "grupo3";
 }
 const tipoGrupo = g => g.tipo === "pareja" ? "Pareja" : g.tamano ? `Grupo de ${g.tamano}` : `Grupo de ${(g.miembros || []).filter(m => !m.hasta).length}`;
 function tarjetaGrupo(g){
@@ -736,8 +744,8 @@ function formAprobar(pr){
       puntuacionAlDecidir: pr.puntos, compatibilidad: pr.compatibilidad, motivos: pr.motivos, decididoEn: hoy, grupoId: gid } });
     for (const x of pr.miembros) {
       const a = alumnadoIrene().find(y => y.id === x.id); if (!a) continue;
-      cambios.push(...cambiosAsignar(a, profesorId, modalidad, null));
-      cambios.push({ coleccion: "alumnos", id: a.id, datos: { ...sinId(a), estado: ["pendiente", "propuesta"].includes(a.estado) ? "activo" : a.estado, modalidadPreferida: modalidad, soloIndividual: false } });
+      cambios.push(...cambiosAsignar(a, profesorId, null, null));
+      if (["pendiente", "propuesta"].includes(a.estado) || a.soloIndividual) cambios.push({ coleccion: "alumnos", id: a.id, datos: { ...sinId(a), estado: ["pendiente", "propuesta"].includes(a.estado) ? "activo" : a.estado, soloIndividual: false } });
     }
     guardar(cambios, "Aprobar " + modLabel(modalidad).toLowerCase(), `${nombre} ${m.querySelector("#ap_prueba").checked ? "creado como prueba" : "creado"}.`);
   };
@@ -1602,10 +1610,10 @@ function formAlumnoCoord(alumno, preset = {}){
       ${nuevo ? `<label class="field">Nombre<input id="c_nombre" maxlength="60"></label><label class="field">Apellidos<input id="c_apellidos" maxlength="80"></label>` : ""}
       <label class="field">Edad<input id="c_edad" type="number" min="3" max="99" step="1" value="${a.edad ?? ""}"></label>
       <label class="field">Nivel inicial<select id="c_ini"><option value="">Sin nivel</option>${NIVELES.map(n => `<option${n === a.nivelInicial ? " selected" : ""}>${n}</option>`).join("")}</select></label>
-      <label class="field">Modalidad<select id="c_mod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${k === (act ? act.modalidad : a.modalidadPreferida) || (k === "grupo3" && (act ? act.modalidad : a.modalidadPreferida) === "grupo") ? " selected" : ""}>${l}</option>`).join("")}</select></label>
       <label class="check full" id="c_solo_box"><input type="checkbox" id="c_solo"${a.soloIndividual ? " checked" : ""}> Solo clases individuales: no quiere pareja ni grupo (no aparecerá en el matching)</label>
+      <p class="muted full" style="font-size:.82rem;margin:0">La modalidad (individual, pareja o grupo) se calcula sola según «Parejas y grupos».</p>
       <label class="field">Estado<select id="c_estado">${Object.entries(ESTADOS_ALUMNO).map(([k, l]) => `<option value="${k}"${k === a.estado ? " selected" : ""}>${l}</option>`).join("")}</select></label>
-      <label class="field">Profesor asignado<select id="c_prof"><option value="">Sin asignar</option>${profesoras().map(p => `<option value="${p.id}"${act && act.profesorId === p.id ? " selected" : ""}>${esc(p.esYo ? "Sara (yo)" : p.nombre)}</option>`).join("")}</select></label>
+      <label class="field">Profesora<select id="c_prof"><option value="">Sin asignar</option>${profesoras().map(p => `<option value="${p.id}"${act && act.profesorId === p.id ? " selected" : ""}>${esc(p.esYo ? "Sara (yo)" : p.nombre)}</option>`).join("")}</select></label>
       <fieldset class="field full"><legend>Disponibilidad <span class="muted">· la del formulario de entrada, en hora de España</span></legend>${editorFranjas("c_disp", disp && disp.franjas)}
         <label class="field" style="margin-top:8px">Notas de disponibilidad<input id="c_dnotas" value="${esc((disp && disp.notas) || "")}" maxlength="200" placeholder="Ej.: flexible · mejor por la tarde · vive en Japón (+8 h)"></label></fieldset>
       <label class="field full">Observaciones de coordinación<textarea id="c_obs" rows="2" maxlength="1000">${esc(a.observacionesCoord || "")}</textarea></label>
@@ -1613,9 +1621,7 @@ function formAlumnoCoord(alumno, preset = {}){
       <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
     </form>`);
   conectarFranjas(m);
-  const prof = m.querySelector("#c_prof"), est = m.querySelector("#c_estado"), modSel = m.querySelector("#c_mod");
-  const syncSolo = () => { m.querySelector("#c_solo_box").hidden = modSel.value !== "individual"; };
-  modSel.addEventListener("change", syncSolo); syncSolo();
+  const prof = m.querySelector("#c_prof"), est = m.querySelector("#c_estado");
   prof.onchange = () => { if (prof.value && est.value === "pendiente") est.value = "activo"; if (!prof.value && est.value === "activo") est.value = "pendiente"; };
   m.querySelector("#fac").onsubmit = ev => {
     ev.preventDefault();
@@ -1624,12 +1630,12 @@ function formAlumnoCoord(alumno, preset = {}){
     if (edad != null && (!Number.isInteger(edad) || edad < 3 || edad > 99)) return fail("La edad tiene que ser un número entre 3 y 99.");
     const fr = leerFranjas(m, "c_disp"); if (fr.error) return fail(fr.error);
     const datos = { ...(alumno ? sinId(alumno) : { academiaId: IRENE, modoPago: "pack", lenguaMaterna: "", clasesPreviasTarifa: null, creadoEn: Date.now() }),
-      edad, nivelInicial: m.querySelector("#c_ini").value, modalidadPreferida: modSel.value, soloIndividual: modSel.value === "individual" && m.querySelector("#c_solo").checked, estado: est.value, observacionesCoord: m.querySelector("#c_obs").value.trim() };
+      edad, nivelInicial: m.querySelector("#c_ini").value, soloIndividual: m.querySelector("#c_solo").checked, estado: est.value, observacionesCoord: m.querySelector("#c_obs").value.trim() };
     if (nuevo) { datos.nombre = m.querySelector("#c_nombre").value.trim(); datos.apellidos = m.querySelector("#c_apellidos").value.trim(); if (!datos.nombre) return fail("Escribe el nombre del alumno."); }
     if (prof.value && est.value === "pendiente") return fail("Si tiene profesor asignado, el estado no puede ser «Pendiente de asignación».");
     const id = alumno ? alumno.id : D.nuevoId("alumnos", "al"), al = { ...datos, id };
     const cambios = [...baseInicial(), { coleccion: "alumnos", id, nuevo, datos },
-      ...cambiosAsignar(al, prof.value || null, m.querySelector("#c_mod").value, null)];
+      ...cambiosAsignar(al, prof.value || null, null, null)];
     const dnotas = m.querySelector("#c_dnotas").value.trim();
     if (fr.franjas.length || dnotas || disponibilidadDe(id)) cambios.push({ coleccion: "disponibilidad", id, nuevo: !disponibilidadDe(id), datos: { personaTipo: "alumno", zonaHoraria: "Europe/Madrid", franjas: fr.franjas, notas: dnotas } });
     guardar(cambios, nuevo ? "Nuevo alumno (coordinación)" : "Coordinación del alumno", nuevo ? `${datos.nombre} añadido al alumnado.` : "Datos de coordinación guardados.");
@@ -1641,7 +1647,7 @@ function tabCoordinacion(a){
   return `
     <dl class="facts">
       <div><dt>Estado</dt><dd>${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</dd></div><div><dt>Edad</dt><dd>${a.edad ?? "—"}</dd></div>
-      <div><dt>Nivel</dt><dd>${esc(nivelActual(a) || "—")}</dd></div><div><dt>Modalidad</dt><dd>${esc(modLabel(act ? act.modalidad : a.modalidadPreferida) || "—")}${a.soloIndividual ? " · solo individual" : ""}</dd></div>
+      <div><dt>Nivel</dt><dd>${esc(nivelActual(a) || "—")}</dd></div><div><dt>Modalidad</dt><dd>${esc(modLabel(modalidadDe(a)) || "—")}${a.soloIndividual ? " · solo individual" : ""}</dd></div>
       <div><dt>Profesora</dt><dd>${act ? esc(nombreProf(act.profesorId)) : "Sin asignar"}</dd></div>
       ${(() => { const c = companeros(a.id); return c ? `<div class="full"><dt>${c.g.tipo === "pareja" ? "Pareja" : "Grupo"}</dt><dd><b>${esc(c.g.nombre)}</b> · con ${esc(nombresY(c.otros.map(nombreCompleto)))}${c.g.estado === "prueba" ? " · en prueba" : " · fija"}</dd></div>` : ""; })()}
       <div class="full"><dt>Disponibilidad</dt><dd>${esc(textoFranjas(disp) || "Sin indicar")}${disp && disp.notas ? `<br><span class="muted">${esc(disp.notas)}</span>` : ""}</dd></div>
@@ -1649,7 +1655,7 @@ function tabCoordinacion(a){
     ${a.observacionesCoord ? `<p class="note">${esc(a.observacionesCoord)}</p>` : ""}
     ${puedeEscribir() ? `<button class="btn sm" type="button" id="editCoord" style="align-self:flex-start">Editar coordinación</button>` : ""}
     <section class="section"><header><h3>Historial de profesores</h3></header>
-      ${hist.length ? `<ul class="hist">${hist.map(x => `<li><span class="num">${x.desde ? fechaCorta(x.desde) : "—"}</span><span>${esc(nombreProf(x.profesorId))} · ${esc(modLabel(x.modalidad) || "")}</span><span class="muted">${vigente(x) ? "Actual" : "hasta " + fechaCorta(x.hasta)}</span></li>`).join("")}</ul>` : `<p class="empty">Sin asignaciones.</p>`}</section>`;
+      ${hist.length ? `<ul class="hist">${hist.map(x => `<li><span class="num">${x.desde ? fechaCorta(x.desde) : "—"}</span><span>${esc(nombreProf(x.profesorId))}</span><span class="muted">${vigente(x) ? "Actual" : "hasta " + fechaCorta(x.hasta)}</span></li>`).join("")}</ul>` : `<p class="empty">Sin asignaciones.</p>`}</section>`;
 }
 
 /** Ficha de profesor. */
@@ -1691,8 +1697,8 @@ function cargaProfesores(){
     const asig = (S.rincon.asignaciones || []).filter(x => x.profesorId === p.id && vigente(x) && x.destino && (x.destino.tipo !== "alumno" || al.has(x.destino.id)));
     const alumnos = asig.filter(x => x.destino.tipo === "alumno").map(x => al.get(x.destino.id)).filter(a => a && a.estado !== "finalizado");
     const n = alumnos.length, cap = Number.isInteger(p.capacidadAlumnos) ? p.capacidadAlumnos : 0;
-    const cuenta = k => asig.filter(x => x.modalidad === k).length;
-    return { p, alumnos, n, cap, ind: cuenta("individual"), par: cuenta("pareja"), g3: cuenta("grupo3") + cuenta("grupo"), g4: cuenta("grupo4"), lleno: !!cap && n >= cap };
+    const cuenta = k => alumnos.filter(x => modalidadDe(x) === k).length;
+    return { p, alumnos, n, cap, ind: cuenta("individual"), par: cuenta("pareja"), g3: cuenta("grupo3"), g4: cuenta("grupo4"), lleno: !!cap && n >= cap };
   });
 }
 
@@ -1891,7 +1897,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28s");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28t");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1910,7 +1916,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28s");
+    D = await import("./datos.js?v=2026-11-28t");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
