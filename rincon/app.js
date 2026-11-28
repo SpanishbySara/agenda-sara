@@ -1,6 +1,7 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28p";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28p";
+export const VERSION = "2026-11-28q";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28q";
+import { proponer, puntuarPareja, puntuarGrupo, claveGrupo, textoHuecos } from "./matching.js?v=2026-11-28q";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -608,8 +609,135 @@ function vCoordResumen(){
   </div>`;
 }
 
+/* ================= matching y agrupaciones ================= */
+const gruposVivos = () => (S.rincon.grupos || []).filter(g => g.estado === "prueba" || g.estado === "activo");
+const enGrupo = () => { const s = new Set(); for (const g of gruposVivos()) for (const m of g.miembros || []) if (!m.hasta || m.hasta > hoyK()) s.add(m.alumnoId); return s; };
+const propuestaDe = clave => (S.rincon.propuestas || []).find(p => p.clave === clave);
+const perfilMatch = a => { const act = asignacionActual(a.id), d = disponibilidadDe(a.id);
+  return { id: a.id, nombre: nombreCompleto(a), nivel: nivelActual(a), edad: Number.isInteger(a.edad) ? a.edad : null, franjas: (d && d.franjas) || [],
+    profesorId: act ? act.profesorId : null, modalidad: act ? act.modalidad : a.modalidadPreferida, texto: [a.objetivoPrincipal, a.intereses].filter(Boolean).join(" ") }; };
+let mTam = 2, mProf = "", mTodos = false;
+function candidatosMatching(){
+  const ocupados = enGrupo();
+  return alumnadoCoord().filter(a => !["finalizado", "pausa"].includes(a.estado) && !ocupados.has(a.id)).map(perfilMatch)
+    .filter(x => (!mProf || x.profesorId === mProf || (mProf === "-" && !x.profesorId)) && (mTodos || x.modalidad === "pareja" || x.modalidad === "grupo"));
+}
+const COMPAT = { alta: ["ok", "Alta compatibilidad"], media: ["warn", "Compatibilidad media"], baja: ["urg", "Compatibilidad baja"] };
+function tarjetaPropuesta(pr, guardada){
+  const [cls, txt] = COMPAT[pr.compatibilidad];
+  return `<article class="propuesta" data-clave="${esc(pr.clave)}">
+    <header><span class="pill ${cls}">${txt}</span><span class="muted num">${pr.puntos}/100</span></header>
+    <ul class="miembros">${pr.miembros.map(m => `<li><b>${esc(m.nombre)}</b><span class="muted">${esc([m.nivel, m.edad ? m.edad + " años" : "", m.profesorId ? nombreProf(m.profesorId) : "sin profesora"].filter(Boolean).join(" · "))}</span></li>`).join("")}</ul>
+    ${pr.motivos.length ? `<ul class="motivos">${pr.motivos.map(t => `<li>✓ ${esc(t)}</li>`).join("")}</ul>` : ""}
+    ${pr.avisos.length ? `<ul class="motivos avisos">${pr.avisos.map(t => `<li>! ${esc(t)}</li>`).join("")}</ul>` : ""}
+    ${puedeEscribir() ? `<div class="packacts"><button class="btn sm primary oliva" type="button" data-maprobar="${esc(pr.clave)}">Aprobar</button>
+      ${guardada ? `<button class="link" type="button" data-mquitar="${esc(pr.clave)}">Quitar de guardadas</button>` : `<button class="link" type="button" data-mguardar="${esc(pr.clave)}">Guardar para más adelante</button>`}
+      <button class="link" type="button" data-mcambiar="${esc(pr.clave)}">Cambiar integrantes</button>
+      <button class="link danger-l" type="button" data-mrechazar="${esc(pr.clave)}">Rechazar</button></div>` : ""}
+  </article>`;
+}
+let propuestasVista = new Map();
+function vMatching(){
+  const cand = candidatosMatching(), porId = new Map(alumnadoCoord().map(a => [a.id, perfilMatch(a)]));
+  const excluir = new Set((S.rincon.propuestas || []).filter(p => ["rechazada", "aprobada", "guardada"].includes(p.estado)).map(p => p.clave));
+  const lista = proponer(cand, mTam, { excluir, limite: 30 });
+  const guardadas = (S.rincon.propuestas || []).filter(p => p.estado === "guardada").map(p => {
+    const ms = p.miembros.map(id => porId.get(id)).filter(Boolean);
+    if (ms.length !== p.miembros.length) return null;
+    return { clave: p.clave, miembros: ms, ...(ms.length === 2 ? puntuarPareja(ms[0], ms[1]) : puntuarGrupo(ms)) };
+  }).filter(Boolean);
+  propuestasVista = new Map([...lista, ...guardadas].map(x => [x.clave, x]));
+  const grupos = gruposVivos().sort((a, b) => (a.estado === "prueba" ? 0 : 1) - (b.estado === "prueba" ? 0 : 1));
+  const al = new Map(alumnadoIrene().map(a => [a.id, a]));
+  return `${aviso()}
+  ${headCoord("Matching y agrupaciones", "Propuestas de parejas y grupos entre los alumnos de las profesoras. Nada se crea hasta que lo apruebas.")}
+  <div class="tools">
+    <div class="seg" role="group" aria-label="Tamaño">${[[2, "Parejas"], [3, "Grupos de 3"], [4, "Grupos de 4"]].map(([n, l]) => `<button type="button" data-mtam="${n}" aria-pressed="${mTam === n}">${l}</button>`).join("")}</div>
+    <select id="mprof" aria-label="Profesora"><option value="">Todas las profesoras</option><option value="-"${mProf === "-" ? " selected" : ""}>Sin profesora</option>${profesoras().map(p => `<option value="${p.id}"${mProf === p.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select>
+    <label class="check"><input type="checkbox" id="mtodos"${mTodos ? " checked" : ""}> Incluir alumnos en individual</label>
+  </div>
+  ${grupos.length ? `<section class="section"><header><h2>Parejas y grupos formados</h2><span class="muted" style="font-size:.8rem">${grupos.length}</span></header>
+    <ul class="alerts">${grupos.map(g => `<li><span class="dot ${g.estado === "prueba" ? "" : "info"}"></span><div><b>${esc(g.nombre)}</b> <span class="pill ${g.estado === "prueba" ? "warn" : "ok"}">${g.estado === "prueba" ? "De prueba" : "Definitivo"}</span>
+      <small>${esc((g.miembros || []).filter(m => !m.hasta).map(m => al.get(m.alumnoId) ? nombreCompleto(al.get(m.alumnoId)) : "?").join(", "))} · ${esc(nombreProf(g.profesorId))}${g.horario ? " · " + esc(g.horario) : ""}</small></div>
+      ${puedeEscribir() ? `<span class="packacts">${g.estado === "prueba" ? `<button class="link" type="button" data-gconfirmar="${g.id}">Confirmar definitivo</button>` : ""}<button class="link danger-l" type="button" data-gdisolver="${g.id}">Disolver</button></span>` : "<span></span>"}</li>`).join("")}</ul></section>` : ""}
+  ${guardadas.length ? `<section class="section"><header><h2>Guardadas para más adelante</h2><span class="muted" style="font-size:.8rem">${guardadas.length}</span></header><div class="propuestas">${guardadas.map(g => tarjetaPropuesta(g, true)).join("")}</div></section>` : ""}
+  <section class="section"><header><h2>Propuestas</h2><span class="muted" style="font-size:.8rem">${plural(cand.length, "alumno disponible", "alumnos disponibles")}</span></header>
+    ${lista.length ? `<div class="propuestas">${lista.map(x => tarjetaPropuesta(x)).join("")}</div>`
+      : `<p class="empty">${cand.length < mTam ? `Hacen falta al menos ${mTam} alumnos sin pareja ni grupo${mTodos ? "" : " que vayan en pareja o grupo (marca «Incluir alumnos en individual» para ver a todos)"}.` : "No hay más propuestas nuevas."}</p>`}</section>
+  <p class="note">Puntos: nivel (35), disponibilidad (30), edad (15), profesora (10) y objetivos o aficiones en común (10). Si no coinciden en ningún hueco, la compatibilidad es baja; si falta la disponibilidad de alguien, como mucho media.</p>`;
+}
+
+/** Aprobar: crea la pareja o el grupo (de prueba o definitivo) y asigna profesora y modalidad a cada alumno. */
+function formAprobar(pr){
+  const tam = pr.miembros.length, profs = [...new Set(pr.miembros.map(m => m.profesorId).filter(Boolean))];
+  const m = modal(`<h2>Aprobar ${tam === 2 ? "pareja" : "grupo de " + tam}</h2>
+    <p class="muted">${esc(pr.miembros.map(x => x.nombre).join(", "))} · ${esc(COMPAT[pr.compatibilidad][1].toLowerCase())}</p>
+    <form id="fap" class="fgrid" novalidate>
+      <label class="field full">Nombre<input id="ap_nombre" value="${esc(tam === 2 ? pr.miembros.map(x => x.nombre.split(" ")[0]).join(" y ") : "Grupo " + (pr.miembros[0].nivel || ""))}" maxlength="60"></label>
+      <label class="field">Profesora<select id="ap_prof">${profesoras().map(p => `<option value="${p.id}"${profs[0] === p.id ? " selected" : ""}>${esc(p.nombre)}</option>`).join("")}</select></label>
+      <label class="field">Horario (opcional)<input id="ap_hor" value="${esc(pr.huecos && pr.huecos.length ? textoHuecos(pr.huecos.slice(0, 1)) : "")}" maxlength="80" placeholder="Ej.: miércoles 18:00"></label>
+      <label class="check full"><input type="checkbox" id="ap_prueba" checked> Empezar como ${tam === 2 ? "pareja" : "grupo"} de prueba (después lo confirmas como definitivo)</label>
+      ${profs.length > 1 ? `<p class="banner full">Tienen profesoras distintas: todos pasarán a la profesora que elijas.</p>` : ""}
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary oliva">Aprobar</button></div>
+    </form>`);
+  m.querySelector("#fap").onsubmit = e => {
+    e.preventDefault();
+    const err = m.querySelector("#f_err"), nombre = m.querySelector("#ap_nombre").value.trim(), profesorId = m.querySelector("#ap_prof").value;
+    if (!nombre) { err.textContent = "Escribe un nombre."; err.hidden = false; return; }
+    if (!profesorId) { err.textContent = "Añade primero a la profesora en «Profesorado»."; err.hidden = false; return; }
+    const hoy = hoyK(), gid = D.nuevoId("grupos", "gr"), modalidad = tam === 2 ? "pareja" : "grupo", niveles = pr.miembros.map(x => x.nivel).filter(Boolean);
+    const cambios = [{ coleccion: "grupos", id: gid, nuevo: true, datos: { tipo: modalidad, nombre, academiaId: IRENE, nivel: niveles.sort()[0] || "", profesorId,
+      estado: m.querySelector("#ap_prueba").checked ? "prueba" : "activo", horario: m.querySelector("#ap_hor").value.trim(), propuestaClave: pr.clave,
+      miembros: pr.miembros.map(x => ({ alumnoId: x.id, desde: hoy, hasta: null })), creadoEn: Date.now() } }];
+    const prev = propuestaDe(pr.clave);
+    cambios.push({ coleccion: "propuestas", id: prev ? prev.id : D.nuevoId("propuestas", "pp"), nuevo: !prev, datos: { clave: pr.clave, miembros: pr.miembros.map(x => x.id), estado: "aprobada",
+      puntuacionAlDecidir: pr.puntos, compatibilidad: pr.compatibilidad, motivos: pr.motivos, decididoEn: hoy, grupoId: gid } });
+    for (const x of pr.miembros) {
+      const a = alumnadoIrene().find(y => y.id === x.id); if (!a) continue;
+      cambios.push(...cambiosAsignar(a, profesorId, modalidad, null));
+      if (["pendiente", "propuesta"].includes(a.estado)) cambios.push({ coleccion: "alumnos", id: a.id, datos: { ...sinId(a), estado: "activo", modalidadPreferida: modalidad } });
+    }
+    guardar(cambios, "Aprobar " + modalidad, `${nombre} ${m.querySelector("#ap_prueba").checked ? "creado como prueba" : "creado"}.`);
+  };
+}
+
+function decidirPropuesta(pr, estado, ok){
+  const prev = propuestaDe(pr.clave);
+  if (estado === null) { if (prev) guardar([{ coleccion: "propuestas", id: prev.id, datos: null }], "Quitar de guardadas", ok); return; }
+  guardar([{ coleccion: "propuestas", id: prev ? prev.id : D.nuevoId("propuestas", "pp"), nuevo: !prev, datos: { clave: pr.clave, miembros: pr.miembros.map(x => x.id), estado,
+    puntuacionAlDecidir: pr.puntos, compatibilidad: pr.compatibilidad, motivos: pr.motivos, decididoEn: hoyK() } }], estado === "rechazada" ? "Rechazar propuesta" : "Guardar propuesta", ok);
+}
+
+/** Cambiar integrantes: eliges a mano y ves la compatibilidad al momento. */
+function formCambiar(pr){
+  const cand = new Map([...candidatosMatching(), ...pr.miembros].map(x => [x.id, x]));
+  const sel = new Set(pr.miembros.map(x => x.id));
+  const m = modal(`<h2>Cambiar integrantes</h2><p class="muted">Elige de 2 a 4 alumnos.</p>
+    <div class="cambiar"><ul class="elegir">${[...cand.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<li><label class="check"><input type="checkbox" value="${x.id}"${sel.has(x.id) ? " checked" : ""}> ${esc(x.nombre)} <span class="muted">${esc([x.nivel, x.edad ? x.edad + " años" : ""].filter(Boolean).join(" · "))}</span></label></li>`).join("")}</ul>
+    <div id="cm_res"></div></div>
+    <div class="mfoot"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="button" class="btn primary oliva" id="cm_ok">Aprobar esta agrupación</button></div>`);
+  let actual = null;
+  const calc = () => {
+    const ids = [...m.querySelectorAll(".elegir input:checked")].map(i => i.value), ms = ids.map(id => cand.get(id));
+    const res = m.querySelector("#cm_res"), okb = m.querySelector("#cm_ok");
+    if (ms.length < 2 || ms.length > 4) { actual = null; okb.disabled = true; res.innerHTML = `<p class="muted">${ms.length < 2 ? "Elige al menos 2." : "Como máximo 4."}</p>`; return; }
+    const r = ms.length === 2 ? puntuarPareja(ms[0], ms[1]) : puntuarGrupo(ms);
+    actual = { clave: claveGrupo(ids), miembros: ms, ...r }; okb.disabled = false;
+    res.innerHTML = tarjetaPropuesta(actual).replace(/<div class="packacts">[\s\S]*?<\/div>/, "");
+  };
+  m.querySelectorAll(".elegir input").forEach(i => i.onchange = calc); calc();
+  m.querySelector("#cm_ok").onclick = () => { if (actual) formAprobar(actual); };
+}
+
+function accionGrupo(id, tipo){
+  const g = (S.rincon.grupos || []).find(x => x.id === id); if (!g) return;
+  if (tipo === "confirmar") guardar([{ coleccion: "grupos", id, datos: { ...sinId(g), estado: "activo" } }], "Confirmar grupo", `${g.nombre}: confirmado como definitivo.`);
+  else confirmar("Disolver", `«${esc(g.nombre)}» dejará de estar activo. Sus alumnos volverán a aparecer en las propuestas. Su historial se conserva.`, "Disolver",
+    motivo => guardar([{ coleccion: "grupos", id, datos: { ...sinId(g), estado: "finalizado", miembros: (g.miembros || []).map(m => m.hasta ? m : { ...m, hasta: hoyK() }) } }], motivo || "Disolver grupo", `${g.nombre} disuelto.`), true);
+}
+
 const PEND = {
-  "coord-matching": ["Jefa de estudios", "Matching y agrupaciones", "Propuestas de parejas y grupos que solo se crean si las apruebas."],
   "coord-horarios": ["Jefa de estudios", "Horarios y asignaciones", "Horarios, huecos libres e incompatibilidades."],
   "coord-seguimiento": ["Jefa de estudios", "Seguimiento académico", "Evolución del alumnado y quién necesita seguimiento."],
   "coord-incidencias": ["Jefa de estudios", "Incidencias", "Registro de incidencias con prioridad, estado y solución."],
@@ -1592,7 +1720,7 @@ function pintarFicha(forzar = false){
 
 /* ================= router y pantallas ================= */
 const VISTAS = { inicio: vInicio, calendario: vCalendario, "profe-resumen": vProfeResumen, "profe-alumnos": vProfeAlumnos, "profe-vincular": vVincular,
-  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura, "profe-seguimiento": vSeguimiento, "profe-actividad": vActividad, "profe-perfiles": vPerfiles, "coord-resumen": vCoordResumen, "coord-alumnado": vAlumnado, "coord-profesorado": vProfesorado };
+  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura, "profe-seguimiento": vSeguimiento, "profe-actividad": vActividad, "profe-perfiles": vPerfiles, "coord-resumen": vCoordResumen, "coord-alumnado": vAlumnado, "coord-profesorado": vProfesorado, "coord-matching": vMatching };
 
 /** Agrupa los datos que llegan de golpe (por ejemplo al volver a la ventana) en un solo redibujado. */
 let renderPendiente = false;
@@ -1636,6 +1764,17 @@ function pintar(){
     [["fnivel", "nivel"], ["festado", "estado"], ["fpago", "pago"]].forEach(([id, k]) => v.querySelector("#" + id).onchange = e => { fAl[k] = e.target.value; render(); });
   }
   const ct = v.querySelector("#confirmarTipos"); if (ct) ct.onclick = () => guardar(baseInicial(), "Configuración inicial", "Configuración guardada: academias, tarifas y avisos.");
+  v.querySelectorAll("[data-mtam]").forEach(b => b.onclick = () => { mTam = Number(b.dataset.mtam); render(); });
+  const mp = v.querySelector("#mprof"); if (mp) mp.onchange = () => { mProf = mp.value; render(); };
+  const mt = v.querySelector("#mtodos"); if (mt) mt.onchange = () => { mTodos = mt.checked; render(); };
+  const prop = k => propuestasVista.get(k);
+  v.querySelectorAll("[data-maprobar]").forEach(b => b.onclick = () => formAprobar(prop(b.dataset.maprobar)));
+  v.querySelectorAll("[data-mguardar]").forEach(b => b.onclick = () => decidirPropuesta(prop(b.dataset.mguardar), "guardada", "Guardada para más adelante."));
+  v.querySelectorAll("[data-mquitar]").forEach(b => b.onclick = () => decidirPropuesta(prop(b.dataset.mquitar), null, "Vuelve a las propuestas."));
+  v.querySelectorAll("[data-mrechazar]").forEach(b => b.onclick = () => decidirPropuesta(prop(b.dataset.mrechazar), "rechazada", "Propuesta rechazada: no se volverá a proponer."));
+  v.querySelectorAll("[data-mcambiar]").forEach(b => b.onclick = () => formCambiar(prop(b.dataset.mcambiar)));
+  v.querySelectorAll("[data-gconfirmar]").forEach(b => b.onclick = () => accionGrupo(b.dataset.gconfirmar, "confirmar"));
+  v.querySelectorAll("[data-gdisolver]").forEach(b => b.onclick = () => accionGrupo(b.dataset.gdisolver, "disolver"));
   v.querySelectorAll("[data-perfil]").forEach(el => { el.onclick = e => { if (e.target.closest("a")) return; abrirFicha(el.dataset.perfil, "perfil"); }; el.onkeydown = e => { if (e.key === "Enter") abrirFicha(el.dataset.perfil, "perfil"); }; });
   const pq = v.querySelector("#pq"); if (pq) pq.oninput = () => { fPerf = pq.value; render(); };
   v.querySelectorAll("[data-fcoord]").forEach(el => { el.onclick = () => abrirFicha(el.dataset.fcoord, "coordinacion"); el.onkeydown = e => { if (e.key === "Enter") abrirFicha(el.dataset.fcoord, "coordinacion"); }; });
@@ -1701,7 +1840,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28p");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28q");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1720,7 +1859,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28p");
+    D = await import("./datos.js?v=2026-11-28q");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
