@@ -223,6 +223,20 @@ test("clases ya gastadas del pack sin fecha: se restan y todas las clases de la 
   assert.equal(r.cubiertas.length, 0);
 });
 
+test("un pack anterior (histórico) no consume clases, no avisa y no se factura", () => {
+  const d = datos({ alumnos: [al("ana", "Ana", LSI)], alias: { a: [LSI, "Ana", { tipo: "alumno", alumnoId: "ana" }] },
+    packs: [pack("h1", "ana", 10, "2000-01-01", { historico: true, fechaCompraDesconocida: true, precio: { importe: 180 } }), pack("p1", "ana", 10, "2026-11-01")],
+    items: [ev("2026-11-02", "Ana", "ty_lsi"), ev("2026-11-03", "Ana", "ty_lsi")] });
+  const r = calcular(d, AHORA), st = r.porAlumno.get("ana");
+  assert.equal(st.packs.find(e => e.pack.id === "h1").estado, "anterior");
+  assert.equal(st.packs.find(e => e.pack.id === "p1").realizadas, 2);
+  assert.equal(st.actual.pack.id, "p1");
+  assert.equal(factura(r, d, LSI, "2000-01").lineas.length, 0);
+  // solo con el pack anterior: ni pendiente de renovar ni aviso
+  const solo = calcular(datos({ alumnos: [al("ana", "Ana", LSI)], packs: [pack("h1", "ana", 10, "2000-01-01", { historico: true })] }), AHORA).porAlumno.get("ana");
+  assert.equal(solo.pendienteRenovar, false);
+});
+
 test("los ajustes manuales suman o restan clases disponibles", () => {
   const d = datos({ alumnos: [al("ana", "Ana")], alias: { a: [IRENE, "Ana", { tipo: "alumno", alumnoId: "ana" }] },
     packs: [pack("p1", "ana", 24, "2026-11-01")], ajustes: [{ packId: "p1", cantidad: 1, motivo: "Regalo" }, { packId: "p1", cantidad: -2, motivo: "Corrección" }],

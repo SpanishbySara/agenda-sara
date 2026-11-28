@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28c";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28c";
+export const VERSION = "2026-11-28e";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28e";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -688,15 +688,15 @@ function formClase(eventId){
 
 /* ================= packs ================= */
 const PLANTILLAS = {
-  "spanish-with-irene": [{ id: "24", nombre: "Pack 24", clases: 24 }, { id: "36", nombre: "Pack 36", clases: 36 }],
+  "spanish-with-irene": [{ id: "24", nombre: "Pack 24", clases: 24, meses: 6 }, { id: "36", nombre: "Pack 36", clases: 36, meses: 9 }],
   "lsi-karmele": [{ id: "adultos", nombre: "Pack adultos", categoria: "adultos", clases: 10, precio: 180, tarifaId: "lsi-adultos-2026" },
                   { id: "apoyo", nombre: "Pack apoyo", categoria: "apoyo", clases: 10, precio: 190, tarifaId: "lsi-apoyo-2026" }]
 };
-const ESTADO_PACK = { activo: "En curso", renovar: "Aviso de renovación", urgente: "Aviso urgente", terminado: "Terminado", pendiente: "Pendiente de empezar", anulado: "Anulado" };
+const ESTADO_PACK = { anterior: "Terminado (anterior)", activo: "En curso", renovar: "Aviso de renovación", urgente: "Aviso urgente", terminado: "Terminado", pendiente: "Pendiente de empezar", anulado: "Anulado" };
 /** renovado = hay un pack posterior (no anulado) del mismo alumno */
 const pillPack = (e, renovado) => {
   const fin = e.estado === "terminado";
-  const cls = fin ? (renovado || e.pack.noRenueva ? "mute" : "urg") : { activo: "ok", renovar: "warn", urgente: "urg", pendiente: "mute", anulado: "mute" }[e.estado];
+  const cls = fin ? (renovado || e.pack.noRenueva ? "mute" : "urg") : { anterior: "mute", activo: "ok", renovar: "warn", urgente: "urg", pendiente: "mute", anulado: "mute" }[e.estado];
   return `<span class="pill ${cls}">${ESTADO_PACK[e.estado]}${fin ? (renovado ? " · renovado" : e.pack.noRenueva ? " · no renueva" : " · pendiente de renovar") : ""}</span>`;
 };
 function ticksPack(e, academiaId, big){
@@ -735,7 +735,7 @@ function formPack(alumno, pack, opts = {}){
     <h2>${nuevo ? (base ? "Renovar pack" : "Nuevo pack") : "Editar pack"} · ${esc(nombreCompleto(alumno))}</h2>
     ${base ? `<p class="muted">El pack nuevo empezará a contar cuando se termine el «${esc(base.nombre)}».</p>` : ""}
     <form id="fp" class="fgrid" novalidate>
-      <label class="field full">Pack<select id="p_tipo">${plant.map(p => `<option value="${p.id}"${p.id === elegida ? " selected" : ""}>${esc(p.nombre)} · ${p.clases} clases${p.precio ? " · " + p.precio + " €" : ""}</option>`).join("")}<option value="otro"${elegida === "otro" ? " selected" : ""}>Otro</option></select></label>
+      <label class="field full">Pack<select id="p_tipo">${plant.map(p => `<option value="${p.id}"${p.id === elegida ? " selected" : ""}>${esc(p.nombre)} · ${p.clases} clases${p.meses ? " · " + p.meses + " meses" : ""}${p.precio ? " · " + p.precio + " €" : ""}</option>`).join("")}<option value="otro"${elegida === "otro" ? " selected" : ""}>Otro</option></select></label>
       <label class="field" id="p_nombre_box">Nombre del pack<input id="p_nombre" value="${esc(v.nombre)}" maxlength="40" placeholder="Ej.: Pack 12"></label>
       <label class="field">Clases contratadas<input id="p_clases" type="number" min="1" step="1" value="${esc(v.clasesContratadas)}"></label>
       <div class="field">Fecha de compra
@@ -780,6 +780,50 @@ function formPack(alumno, pack, opts = {}){
     const resumen = pack && pack.clasesContratadas !== clases ? { clasesContratadas: [pack.clasesContratadas, clases] } : null;
     guardar([...baseInicial(), { coleccion: "packs", id: pack ? pack.id : D.nuevoId("packs", "pk"), nuevo, datos, resumen }],
       nuevo ? (base ? "Renovación" : "Nuevo pack") : "Editar pack", nuevo ? (base ? `Renovación de ${alumno.nombre} guardada.` : `Pack de ${alumno.nombre} creado.`) : "Pack guardado.");
+  };
+}
+
+/** Pack ya terminado antes de usar Mi rincón de profe: solo deja constancia. */
+function formPackAnterior(alumno){
+  const ac = alumno.academiaId, plant = PLANTILLAS[ac] || [], irene = ac === "spanish-with-irene";
+  const prevActual = (alumno.clasesPreviasTarifa && alumno.clasesPreviasTarifa.clases) || 0;
+  const m = modal(`
+    <h2>Pack anterior · ${esc(nombreCompleto(alumno))}</h2>
+    <p class="muted">Para dejar constancia de un pack que ya terminó antes de usar Mi rincón de profe. No descuenta clases de la agenda, no se factura y no genera avisos.</p>
+    <form id="fh" class="fgrid" novalidate>
+      <label class="field">Pack<select id="h_tipo">${plant.map(p => `<option value="${p.id}">${esc(p.nombre)} · ${p.clases} clases${p.meses ? " · " + p.meses + " meses" : ""}</option>`).join("")}<option value="otro">Otro</option></select></label>
+      <label class="field">Clases<input id="h_clases" type="number" min="1" step="1" value="${plant[0] ? plant[0].clases : ""}"></label>
+      <label class="field" id="h_nombre_box" hidden>Nombre del pack<input id="h_nombre" maxlength="40" placeholder="Ej.: Pack 12"></label>
+      <label class="field">Periodo (opcional)<input id="h_periodo" maxlength="40" placeholder="Ej.: 6 meses · ene–jun 2025"></label>
+      <label class="field">¿Cuántos packs así? <input id="h_n" type="number" min="1" max="10" step="1" value="1"></label>
+      ${irene ? `<label class="check full"><input type="checkbox" id="h_sumar" checked> <span>Sumar estas clases a «Clases anteriormente dadas» (para cobrar 19/23 €): ahora ${prevActual} → <b id="h_total"></b></span></label>` : ""}
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+    </form>`);
+  const tipo = m.querySelector("#h_tipo"), cl = m.querySelector("#h_clases"), nn = m.querySelector("#h_n");
+  const upd = () => { const p = plant.find(x => x.id === tipo.value); m.querySelector("#h_nombre_box").hidden = !!p;
+    const t = m.querySelector("#h_total"); if (t) t.textContent = prevActual + (Number(cl.value) || 0) * (Number(nn.value) || 0); };
+  const per = m.querySelector("#h_periodo"); let perAuto = true; per.oninput = () => { perAuto = false; };
+  const ponPeriodo = () => { const p = plant.find(x => x.id === tipo.value); if (perAuto) per.value = p && p.meses ? p.meses + " meses" : ""; };
+  tipo.onchange = () => { const p = plant.find(x => x.id === tipo.value); if (p) cl.value = p.clases; ponPeriodo(); upd(); };
+  ponPeriodo();
+  cl.oninput = upd; nn.oninput = upd; upd();
+  m.querySelector("#fh").onsubmit = ev => {
+    ev.preventDefault();
+    const err = m.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
+    const p = plant.find(x => x.id === tipo.value), clases = Number(cl.value), n = Number(nn.value);
+    const nombre = p ? p.nombre : m.querySelector("#h_nombre").value.trim(), periodo = m.querySelector("#h_periodo").value.trim();
+    if (!nombre) return fail("Escribe un nombre para el pack.");
+    if (!Number.isInteger(clases) || clases < 1) return fail("Las clases tienen que ser un número entero mayor que 0.");
+    if (!Number.isInteger(n) || n < 1 || n > 10) return fail("El número de packs tiene que estar entre 1 y 10.");
+    const cambios = [...baseInicial()];
+    for (let i = 0; i < n; i++) cambios.push({ coleccion: "packs", id: D.nuevoId("packs", "pk"), nuevo: true, datos: { alumnoId: alumno.id, nombre, categoria: p && p.categoria || null,
+      clasesContratadas: clases, fechaCompra: "2000-01-01", fechaCompraDesconocida: true, historico: true, periodo, precio: null, consumidasPrevias: null,
+      noRenueva: null, estadoManual: null, renovacionDe: null, creadoEn: Date.now() - (n - i) } });
+    const sumar = m.querySelector("#h_sumar");
+    if (sumar && sumar.checked) cambios.push({ coleccion: "alumnos", id: alumno.id, datos: { ...sinId(alumno), clasesPreviasTarifa: { clases: prevActual + clases * n } },
+      resumen: { clasesPreviasTarifa: [prevActual, prevActual + clases * n] } });
+    guardar(cambios, "Pack anterior", n === 1 ? "Pack anterior guardado." : `${n} packs anteriores guardados.`);
   };
 }
 
@@ -832,19 +876,19 @@ function tabPacks(a, st){
   const ultimo = st && st.packs.filter(e => !e.anulado).slice(-1)[0];
   const puedeRenovar = ultimo && ["renovar", "urgente", "terminado"].includes(ultimo.estado);
   const ajustes = id => (S.rincon.ajustesPack || []).filter(x => x.packId === id).sort((x, y) => x.fecha < y.fecha ? 1 : -1);
-  const acciones = (e, renovado) => !puedeEscribir() ? "" : `<div class="packacts">
+  const acciones = (e, renovado) => !puedeEscribir() ? "" : e.historico ? `<div class="packacts"><button class="link danger-l" type="button" data-pk="eliminar" data-id="${e.pack.id}">Eliminar</button></div>` : `<div class="packacts">
       <button class="link" type="button" data-pk="editar" data-id="${e.pack.id}">Editar</button>
       <button class="link" type="button" data-pk="ajuste" data-id="${e.pack.id}">Ajuste manual</button>
       ${e.estado === "terminado" && !renovado ? (e.pack.noRenueva ? `<button class="link" type="button" data-pk="sirenueva" data-id="${e.pack.id}">Quitar «no renueva»</button>` : `<button class="link" type="button" data-pk="norenueva" data-id="${e.pack.id}">No renueva</button>`) : ""}
       ${e.anulado ? `<button class="link" type="button" data-pk="reactivar" data-id="${e.pack.id}">Reactivar</button>` : ""}
       <button class="link danger-l" type="button" data-pk="eliminar" data-id="${e.pack.id}">Eliminar</button></div>`;
   return `
-    <div class="packtop">${puedeEscribir() ? `${puedeRenovar ? `<button class="btn primary sm" type="button" data-pk="renovar" data-id="${ultimo.pack.id}">Renovar</button>` : ""}<button class="btn sm" type="button" data-pk="nuevo">+ Nuevo pack</button>` : ""}</div>
+    <div class="packtop">${puedeEscribir() ? `${puedeRenovar ? `<button class="btn primary sm" type="button" data-pk="renovar" data-id="${ultimo.pack.id}">Renovar</button>` : ""}<button class="btn sm ghost" type="button" data-pk="anterior">+ Pack anterior</button><button class="btn sm" type="button" data-pk="nuevo">+ Nuevo pack</button>` : ""}</div>
     ${a.modoPago === "por_clase" ? `<p class="note">Paga clase a clase: sus clases cuentan como sueltas. Si compra un pack, créalo aquí y las clases desde su fecha de compra se descontarán del pack.</p>` : ""}
     ${st && st.sinPack.length ? `<p class="banner">${plural(st.sinPack.length, "clase dada sin pack", "clases dadas sin pack")}: ${st.sinPack.slice(-5).map(c => fechaCorta(c.fecha)).join(", ")}${st.sinPack.length > 5 ? "…" : ""}. Crea o renueva un pack con una fecha de compra anterior para que se descuenten.</p>` : ""}
     ${st && st.antesDePacks.length ? `<p class="note">${plural(st.antesDePacks.length, "clase de la agenda es anterior", "clases de la agenda son anteriores")} a su primer pack registrado: no se descuentan de ningún pack.</p>` : ""}
     ${packs.length ? packs.map(e => { const renovado = e !== ultimo && !e.anulado; return `<article class="packcard">
-        <header><div><h3>${esc(e.pack.nombre || "Pack")}</h3><span class="muted" style="font-size:.8rem">Compra: ${e.pack.fechaCompraDesconocida ? "fecha desconocida" : fechaCorta(e.pack.fechaCompra) + " " + e.pack.fechaCompra.slice(0, 4)}${e.pack.precio ? ` · ${String(e.pack.precio.importe).replace(".", ",")} €` : ""}${e.pack.renovacionDe ? " · renovación" : ""}</span></div>${pillPack(e, renovado)}</header>
+        <header><div><h3>${esc(e.pack.nombre || "Pack")}</h3><span class="muted" style="font-size:.8rem">${e.historico ? `Antes de Mi rincón de profe${e.pack.periodo ? " · " + esc(e.pack.periodo) : ""}` : ""}${e.historico ? "" : "Compra: "}${e.historico ? "" : e.pack.fechaCompraDesconocida ? "fecha desconocida" : fechaCorta(e.pack.fechaCompra) + " " + e.pack.fechaCompra.slice(0, 4)}${e.pack.precio ? ` · ${String(e.pack.precio.importe).replace(".", ",")} €` : ""}${e.pack.renovacionDe ? " · renovación" : ""}</span></div>${pillPack(e, renovado)}</header>
         ${ticksPack(e, a.academiaId, true)}
         <dl class="packnums"><div><dt>Contratadas</dt><dd>${e.pack.clasesContratadas}${e.disponibles !== e.pack.clasesContratadas ? ` <small>(${e.disponibles > e.pack.clasesContratadas ? "+" : ""}${e.disponibles - e.pack.clasesContratadas} ajuste)</small>` : ""}</dd></div>
           <div><dt>Realizadas</dt><dd>${e.realizadas}${e.previas ? ` <small>(${e.previas} antes de la agenda)</small>` : ""}</dd></div>
@@ -964,6 +1008,7 @@ function pintarFicha(){
   document.querySelectorAll("#drawerRoot [data-pk]").forEach(b => b.onclick = () => {
     const pk = b.dataset.id ? packById(b.dataset.id) : null, t = b.dataset.pk;
     if (t === "nuevo") formPack(a, null);
+    else if (t === "anterior") formPackAnterior(a);
     else if (t === "renovar") formPack(a, null, { renovarDe: pk.id });
     else if (t === "editar") formPack(a, pk);
     else if (t === "ajuste") formAjuste(a, pk);
@@ -1067,7 +1112,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28c");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28e");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1086,7 +1131,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28c");
+    D = await import("./datos.js?v=2026-11-28e");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";

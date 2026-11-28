@@ -180,7 +180,8 @@ export function calcular(datos, ahora = new Date()){
       .sort((a, b) => (inicioPack(a) < inicioPack(b) ? -1 : inicioPack(a) > inicioPack(b) ? 1 : 0) || (a.fechaCompra < b.fechaCompra ? -1 : a.fechaCompra > b.fechaCompra ? 1 : 0) || ((a.creadoEn || 0) - (b.creadoEn || 0)));
     const est = packs.map(p => {
       const previas = p.consumidasPrevias && Number.isInteger(p.consumidasPrevias.clases) ? p.consumidasPrevias : null;
-      return { pack: p, anulado: p.estadoManual === "anulado", inicio: inicioPack(p), corte: previas ? previas.hasta : null,
+      // Un pack «anterior» solo deja constancia de un pack ya terminado antes de usar Mi rincón de profe: no consume clases.
+      return { pack: p, historico: !!p.historico, anulado: p.estadoManual === "anulado" || !!p.historico, inicio: inicioPack(p), corte: previas ? previas.hasta : null,
         disponibles: p.clasesContratadas + (ajustesPorPack.get(p.id) || 0), previas: previas ? previas.clases : 0, asignadas: [] };
     });
     const vivos = est.filter(e => !e.anulado);
@@ -210,6 +211,7 @@ export function calcular(datos, ahora = new Date()){
     for (const e of est) {
       e.realizadas = e.previas + e.asignadas.length;
       e.restantes = Math.max(0, restante(e));
+      if (e.historico) { e.estado = "anterior"; e.realizadas = e.disponibles; e.restantes = 0; continue; }
       if (e.anulado) e.estado = "anulado";
       else if (e.inicio > hoy || (abiertoAnterior && e.asignadas.length === 0)) e.estado = "pendiente";
       else if (e.restantes <= 0) e.estado = "terminado";
@@ -277,7 +279,7 @@ export function factura(resultado, datos, academiaId, mes){
     }
   } else if (academiaId === "lsi-karmele") {
     for (const p of datos.packs || []) {
-      if (p.estadoManual === "anulado" || p.fechaCompraDesconocida || !enMes(p.fechaCompra)) continue;   // un pack antiguo sin fecha ya se facturó
+      if (p.estadoManual === "anulado" || p.historico || p.fechaCompraDesconocida || !enMes(p.fechaCompra)) continue;   // un pack antiguo sin fecha ya se facturó
       const al = datos.alumnos.find(a => a.id === p.alumnoId);
       if (!al || al.academiaId !== academiaId) continue;
       const importe = p.precio && typeof p.precio.importe === "number" ? p.precio.importe : null;
