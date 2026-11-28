@@ -355,3 +355,16 @@ table.fac tfoot td{padding:12px;border-top:2px solid var(--line)}
 .st-pendiente{color:var(--urgent)}
 details.opcional{border:1px dashed var(--line);border-radius:14px;padding:10px 14px}
 details.opcional[open] summary{margin-bottom:8px}
+
+/* ---------- perfiles ---------- */
+.perfiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
+.perfil{background:var(--surface);border:1px solid var(--line-soft);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:12px;cursor:pointer}
+.perfil:hover{border-color:var(--line)}
+.perfil.inactivo{opacity:.7}
+.perfil header{display:flex;gap:12px;align-items:center}
+.perfil .avatar{width:44px;height:44px;border-radius:14px;font-size:1rem}
+.perfil dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px;font-size:.86rem}
+.perfil dt{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}
+.perfil dd{margin:0;overflow-wrap:anywhere}
+.contacto{margin:8px 0 0;font-size:.88rem}
+a{color:var(--burdeos)}

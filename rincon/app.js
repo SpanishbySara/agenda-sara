@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28l";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28l";
+export const VERSION = "2026-11-28m";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28m";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -91,6 +91,7 @@ const I = {
   school: '<path d="M3 9l9-5 9 5-9 5z"/><path d="M7 11.5V16c1.5 1.3 3.2 2 5 2s3.5-.7 5-2v-4.5"/>',
   tag: '<path d="M4 4h7l9 9-7 7-9-9z"/><circle cx="8.5" cy="8.5" r="1.3"/>',
   steps: '<path d="M4 18h5v-4h5v-4h6"/>',
+  card: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.5 16c.6-1.6 1.9-2.4 3.5-2.4s2.9.8 3.5 2.4M14 10h4M14 13h3"/>',
   grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
   toggle: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="3"/>',
   sliders: '<path d="M5 6h14M5 12h14M5 18h14"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>',
@@ -105,7 +106,7 @@ function nav(){
   return [
     { title: "General", items: [["inicio", "Dashboard", "home"], ["calendario", "Calendario", "cal"]] },
     { title: "Mi espacio de profe", space: "profe", items: [
-      ["profe-resumen", "Resumen docente", "sun"], ["profe-alumnos", "Mis alumnos", "users"], ["profe-vincular", "Nombres sin vincular", "link", m.sinVincular.length],
+      ["profe-resumen", "Resumen docente", "sun"], ["profe-alumnos", "Mis alumnos", "users"], ["profe-perfiles", "Perfiles", "card"], ["profe-vincular", "Nombres sin vincular", "link", m.sinVincular.length],
       ["profe-packs", "Packs y renovaciones", "layers"], ["profe-historial", "Historial de clases", "hist"], ["profe-seguimiento", "Seguimiento académico", "sprout"],
       ["profe-actividad", "Mi actividad docente", "chart"], ["profe-factura", "Factura del mes", "receipt"]] },
     { title: "Jefa de estudios", space: "coord", items: [
@@ -1167,7 +1168,7 @@ function tabAcademica(a){
     <fieldset class="field full"><legend>Destrezas que necesita mejorar</legend><div class="estados">${Object.entries(DESTREZAS).map(([k, l]) => `<label class="check"><input type="checkbox" value="${k}" data-destreza${dm.has(k) ? " checked" : ""}${ro}> ${l}</label>`).join("")}</div></fieldset>
     <label class="field full">Necesidades específicas<textarea id="ac_nec" rows="2" maxlength="600"${ro}>${esc(a.necesidades || "")}</textarea></label>
     <label class="field full">Dificultades detectadas<textarea id="ac_dif" rows="2" maxlength="600"${ro}>${esc(a.dificultades || "")}</textarea></label>
-    <label class="field full">Intereses personales para las clases<textarea id="ac_int" rows="2" maxlength="600"${ro}>${esc(a.intereses || "")}</textarea></label>
+    <input type="hidden" id="ac_int" value="${esc(a.intereses || "")}">
     <label class="field full">Observaciones de la profesora<textarea id="ac_obs" rows="3" maxlength="1500"${ro}>${esc(a.observacionesProfe || "")}</textarea></label>
     <p class="err full" id="f_err" hidden></p>
     ${ro ? "" : `<div class="mfoot full"><button type="submit" class="btn primary">Guardar</button></div>`}
@@ -1270,6 +1271,72 @@ function conectarTabsFicha(a){
   }
   root.querySelectorAll("[data-borranota]").forEach(b => b.onclick = () => confirmar("Eliminar nota", "Se borrará esta nota. No se puede deshacer.", "Eliminar",
     motivo => guardar([{ coleccion: "observaciones", id: b.dataset.borranota, datos: null }], motivo || "Eliminar nota", "Nota eliminada."), true));
+}
+
+/* ================= perfil del alumno (objetivo, aficiones, disponibilidad y contacto) ================= */
+const soloDigitos = t => String(t || "").replace(/[^\d]/g, "");
+function enlacesContacto(c){
+  if (!c) return "";
+  const out = [];
+  if (c.email) out.push(`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`);
+  if (c.telefono) out.push(`<a href="https://wa.me/${soloDigitos(c.telefono)}" target="_blank" rel="noopener">${esc(c.telefono)}</a> <span class="muted">(WhatsApp)</span>`);
+  if (c.otro) out.push(esc(c.otro));
+  return out.join("<br>");
+}
+function tabPerfil(a){
+  const c = a.contacto || {}, disp = disponibilidadDe(a.id), ro = puedeEscribir() ? "" : " disabled";
+  return `<form id="perfil" class="fgrid" novalidate>
+    <label class="field full">Objetivo<textarea id="pf_obj" rows="2" maxlength="600" placeholder="Ej.: preparar el DELE B1 · poder trabajar en España"${ro}>${esc(a.objetivoPrincipal || "")}</textarea></label>
+    <label class="field full">Aficiones<textarea id="pf_afi" rows="2" maxlength="600" placeholder="Ej.: diseño, senderismo, cine coreano"${ro}>${esc(a.intereses || "")}</textarea></label>
+    <fieldset class="field full"><legend>Disponibilidad <span class="muted">· hora de España</span></legend>${editorFranjas("pf_disp", disp && disp.franjas)}
+      <label class="field" style="margin-top:8px">Notas de disponibilidad<input id="pf_dnotas" value="${esc((disp && disp.notas) || "")}" maxlength="200" placeholder="Ej.: flexible · vive en Japón (+8 h)"${ro}></label></fieldset>
+    <fieldset class="field full"><legend>Contacto</legend><div class="row2">
+      <label class="field">Email<input id="pf_mail" type="email" value="${esc(c.email || "")}" maxlength="120"${ro}></label>
+      <label class="field">Teléfono / WhatsApp<input id="pf_tel" type="tel" value="${esc(c.telefono || "")}" maxlength="30" placeholder="+34 600 000 000"${ro}></label></div>
+      <label class="field" style="margin-top:8px">Otro contacto<input id="pf_otro" value="${esc(c.otro || "")}" maxlength="120" placeholder="Ej.: Zoom: ana.l · Instagram"${ro}></label>
+      ${enlacesContacto(c) ? `<p class="contacto">${enlacesContacto(c)}</p>` : ""}</fieldset>
+    <p class="err full" id="f_err" hidden></p>
+    ${ro ? "" : `<div class="mfoot full"><button type="submit" class="btn primary">Guardar perfil</button></div>`}
+  </form>`;
+}
+function conectarPerfil(a){
+  const f = $("#drawerRoot #perfil"); if (!f) return;
+  marcarSucia(f); conectarFranjas(f);
+  f.querySelectorAll("[data-addf], [data-quitarf]").forEach(b => b.addEventListener("click", () => { fichaSucia = true; }));
+  f.onsubmit = e => {
+    e.preventDefault();
+    const err = f.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
+    const email = f.querySelector("#pf_mail").value.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("El email no parece correcto.");
+    const fr = leerFranjas(f, "pf_disp"); if (fr.error) return fail(fr.error);
+    const dnotas = f.querySelector("#pf_dnotas").value.trim();
+    const cambios = [{ coleccion: "alumnos", id: a.id, datos: { ...sinId(a), objetivoPrincipal: f.querySelector("#pf_obj").value.trim(), intereses: f.querySelector("#pf_afi").value.trim(),
+      contacto: { email, telefono: f.querySelector("#pf_tel").value.trim(), otro: f.querySelector("#pf_otro").value.trim() } } }];
+    const d = disponibilidadDe(a.id);
+    if (fr.franjas.length || dnotas || d) cambios.push({ coleccion: "disponibilidad", id: a.id, nuevo: !d, datos: { ...(d ? sinId(d) : { personaTipo: "alumno", zonaHoraria: "Europe/Madrid" }), franjas: fr.franjas, notas: dnotas } });
+    fichaSucia = false;
+    guardar(cambios, "Perfil del alumno", "Perfil guardado.");
+  };
+}
+
+let fPerf = "";
+function vPerfiles(){
+  const al = misAlumnos().filter(a => pasaFiltro(a.academiaId) && (!fPerf || nombreCompleto(a).toLowerCase().includes(fPerf.toLowerCase())))
+    .sort((x, y) => (x.estado === "activo" ? 0 : 1) - (y.estado === "activo" ? 0 : 1) || nombreCompleto(x).localeCompare(nombreCompleto(y), "es"));
+  const vacio = t => `<span class="muted">${t}</span>`;
+  return `${aviso()}
+  ${head("Mi espacio de profe", "Perfiles", "Objetivo, aficiones, disponibilidad y contacto de cada alumno. Pulsa una tarjeta para editar su perfil.", acSeg(), "var(--burdeos)")}
+  <div class="tools"><input id="pq" type="search" placeholder="Buscar por nombre" value="${esc(fPerf)}" aria-label="Buscar alumno"></div>
+  ${al.length ? `<div class="perfiles">${al.map(a => { const d = disponibilidadDe(a.id);
+    return `<article class="perfil${a.estado === "activo" ? "" : " inactivo"}" data-perfil="${a.id}" tabindex="0">
+      <header><span class="avatar ${acad(a.academiaId).css}">${esc((a.nombre[0] || "") + ((a.apellidos || "")[0] || ""))}</span><div><h3><span class="name${resaltado(a.id)}">${esc(nombreCompleto(a))}</span></h3><div>${chip(a.academiaId)} <span class="muted" style="font-size:.8rem">${esc(nivelActual(a) || "")}${a.estado !== "activo" ? " · " + esc(ESTADOS_ALUMNO[a.estado] || "") : ""}</span></div></div></header>
+      <dl>
+        <dt>Objetivo</dt><dd>${a.objetivoPrincipal ? esc(a.objetivoPrincipal) : vacio("Sin indicar")}</dd>
+        <dt>Aficiones</dt><dd>${a.intereses ? esc(a.intereses) : vacio("Sin indicar")}</dd>
+        <dt>Disponibilidad</dt><dd>${textoFranjas(d) || (d && d.notas) ? esc(textoFranjas(d)) + (d && d.notas ? `${textoFranjas(d) ? "<br>" : ""}<span class="muted">${esc(d.notas)}</span>` : "") : vacio("Sin indicar")}</dd>
+        <dt>Contacto</dt><dd>${enlacesContacto(a.contacto) || vacio("Sin indicar")}</dd>
+      </dl></article>`; }).join("")}</div>`
+    : `<p class="empty">${fPerf ? "Ningún alumno coincide." : "Todavía no hay fichas de alumnos."}</p>`}`;
 }
 
 /* ================= coordinación: profesorado, asignaciones y disponibilidad ================= */
@@ -1445,7 +1512,7 @@ function pintarFicha(forzar = false){
   const st = modelo().porAlumno.get(a.id), ac = acad(a.academiaId);
   const clases = (st ? st.consumos : []).slice().reverse();
   const dadas = clases.filter(c => !c.prevista);
-  const tabs = [["resumen", "Resumen"], ["academica", "Información académica"], ["packs", "Packs"], ["historial", "Historial"], ["seguimiento", "Seguimiento"], ["notas", "Notas"],
+  const tabs = [["resumen", "Resumen"], ["perfil", "Perfil"], ["academica", "Información académica"], ["packs", "Packs"], ["historial", "Historial"], ["seguimiento", "Seguimiento"], ["notas", "Notas"],
     ...(a.academiaId === IRENE ? [["coordinacion", "Coordinación"]] : [])];
   const fila = c => { const r = modelo().datos.registros.get(c.eventId); return `<li class="clic" data-clase="${esc(c.eventId)}" tabindex="0"><span class="num">${fechaCorta(c.fecha)}</span><span>${cap(c.modalidad)} · ${c.minutos} min${r && r.contenido ? ` · <span class="muted">${esc(r.contenido)}</span>` : ""}${c.nota ? ` · <span class="muted">${esc(c.nota)}</span>` : ""}</span>${etiquetaConsumo(c)}</li>`; };
   let body;
@@ -1473,6 +1540,7 @@ function pintarFicha(forzar = false){
   else if (fichaTab === "seguimiento") body = tabSeguimiento(a);
   else if (fichaTab === "notas") body = tabNotas(a);
   else if (fichaTab === "coordinacion") body = tabCoordinacion(a);
+  else if (fichaTab === "perfil") body = tabPerfil(a);
   else if (fichaTab === "historial") body = clases.length ? `<ul class="hist">${clases.map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`;
   else body = `<p class="phase" style="align-self:flex-start">Próximo paso</p><p class="muted">La pestaña «${esc(tabs.find(t => t[0] === fichaTab)[1])}» llega en los siguientes pasos.</p>`;
   const antes = $("#drawerRoot .dbody"), scrollFicha = antes && antes.dataset.k === fichaAbierta + "|" + fichaTab ? antes.scrollTop : 0;
@@ -1499,13 +1567,13 @@ function pintarFicha(forzar = false){
     else accionPack(t, a, pk);
   });
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { fichaTab = b.dataset.tab; fichaSucia = false; pintarFicha(true); });
-  conectarTabsFicha(a);
+  conectarTabsFicha(a); conectarPerfil(a);
   document.querySelectorAll("[data-unalias]").forEach(b => b.onclick = () => { const z = aliasDe(a.id).find(q => q.id === b.dataset.unalias); if (z) quitarAlias(z); });
 }
 
 /* ================= router y pantallas ================= */
 const VISTAS = { inicio: vInicio, calendario: vCalendario, "profe-resumen": vProfeResumen, "profe-alumnos": vProfeAlumnos, "profe-vincular": vVincular,
-  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura, "profe-seguimiento": vSeguimiento, "profe-actividad": vActividad, "coord-resumen": vCoordResumen, "coord-alumnado": vAlumnado, "coord-profesorado": vProfesorado };
+  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura, "profe-seguimiento": vSeguimiento, "profe-actividad": vActividad, "profe-perfiles": vPerfiles, "coord-resumen": vCoordResumen, "coord-alumnado": vAlumnado, "coord-profesorado": vProfesorado };
 
 /** Agrupa los datos que llegan de golpe (por ejemplo al volver a la ventana) en un solo redibujado. */
 let renderPendiente = false;
@@ -1549,6 +1617,8 @@ function pintar(){
     [["fnivel", "nivel"], ["festado", "estado"], ["fpago", "pago"]].forEach(([id, k]) => v.querySelector("#" + id).onchange = e => { fAl[k] = e.target.value; render(); });
   }
   const ct = v.querySelector("#confirmarTipos"); if (ct) ct.onclick = () => guardar(baseInicial(), "Configuración inicial", "Configuración guardada: academias, tarifas y avisos.");
+  v.querySelectorAll("[data-perfil]").forEach(el => { el.onclick = e => { if (e.target.closest("a")) return; abrirFicha(el.dataset.perfil, "perfil"); }; el.onkeydown = e => { if (e.key === "Enter") abrirFicha(el.dataset.perfil, "perfil"); }; });
+  const pq = v.querySelector("#pq"); if (pq) pq.oninput = () => { fPerf = pq.value; render(); };
   v.querySelectorAll("[data-fcoord]").forEach(el => { el.onclick = () => abrirFicha(el.dataset.fcoord, "coordinacion"); el.onkeydown = e => { if (e.key === "Enter") abrirFicha(el.dataset.fcoord, "coordinacion"); }; });
   v.querySelectorAll("[data-prof]").forEach(tr => { const pr = () => { const p = profById(tr.dataset.prof); if (p && puedeEscribir()) formProfesor(p); }; tr.onclick = pr; tr.onkeydown = e => { if (e.key === "Enter") pr(); }; });
   const nc = v.querySelector("#nuevoCoord"); if (nc) nc.onclick = () => formAlumnoCoord(null);
@@ -1612,7 +1682,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28l");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28m");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1631,7 +1701,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28l");
+    D = await import("./datos.js?v=2026-11-28m");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
