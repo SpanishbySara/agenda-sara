@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28b";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28b";
+export const VERSION = "2026-11-28c";
+import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28c";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -505,8 +505,9 @@ function formFicha(alumno, preset = {}){
       <label class="field full" id="f_prev_box">Clases anteriormente dadas <span class="muted">Las que hizo contigo antes de apuntarlas en la agenda. Sirve para saber si cobras 17 € o 19 €. Si es nuevo, déjalo vacío.</span>
         <input id="f_prev_n" type="number" min="0" step="1" value="${prev.clases ?? ""}" placeholder="0" style="max-width:140px"></label>
       <p class="err full" id="f_err" hidden></p>
-      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+      <div class="mfoot full">${nuevo ? "" : `<span class="mfoot-izq"><button type="button" class="link" id="e_fusion">Fusionar con otra ficha</button><button type="button" class="link danger-l" id="e_borrar">Eliminar ficha</button></span>`}<button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
     </form>`);
+  if (!nuevo) { m.querySelector("#e_fusion").onclick = () => formFusionar(alumno); m.querySelector("#e_borrar").onclick = () => eliminarFicha(alumno); }
   const acSel = m.querySelector("#f_ac"), box = m.querySelector("#f_prev_box");
   const upd = () => { box.hidden = acSel.value !== "spanish-with-irene"; };
   acSel.onchange = upd; upd();
@@ -1066,7 +1067,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28b");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28c");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1085,7 +1086,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28b");
+    D = await import("./datos.js?v=2026-11-28c");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";

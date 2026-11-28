@@ -324,3 +324,4 @@ td small{display:block}
 input[type=radio],input[type=checkbox]{accent-color:var(--burdeos)}
 .resizing .side,.resizing .scrim-menu{transition:none!important}
 .gestion{border-top:1px solid var(--line-soft);padding-top:14px}
+.mfoot-izq{margin-right:auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
