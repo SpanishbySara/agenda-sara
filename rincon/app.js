@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28f";
-import { calcular, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28f";
+export const VERSION = "2026-11-28g";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28g";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -54,7 +54,8 @@ function modelo(){
   const ahora = new Date();
   const datos = {
     items: S.agenda || [], academias: academias(),
-    alumnos: S.rincon.alumnos || [], packs: S.rincon.packs || [], ajustesPack: S.rincon.ajustesPack || [], tarifas: S.rincon.tarifas || [],
+    alumnos: S.rincon.alumnos || [], packs: S.rincon.packs || [], ajustesPack: S.rincon.ajustesPack || [],
+    tarifas: (S.rincon.tarifas || []).length ? S.rincon.tarifas : TARIFAS_BASE.map(t => ({ ...t.datos, id: t.id })),
     config: (S.rincon.config || []).find(c => c.id === "general"),
     alias: new Map((S.rincon.alias || []).map(a => [a.id, a])),
     grupos: new Map((S.rincon.grupos || []).map(g => [g.id, g])),
@@ -401,10 +402,63 @@ function vPreferencias(){
   <p class="note">Con 0 clases restantes el pack se da por terminado y el alumno queda pendiente de renovar hasta que renueve o marques «No renueva».</p>`;
 }
 
+let mesFactura = sumarMes(mesKey(new Date()), -1), acFactura = "spanish-with-irene";
+function datosFactura(){
+  const m = modelo(), f = factura(m, m.datos, acFactura, mesFactura);
+  const avisos = f.avisos.map(a => a.texto);
+  // Lo que se queda fuera: clases con nombres sin vincular y (en LSI) clases sin pack
+  const sinV = m.sesiones.filter(s => s.academiaId === acFactura && s.pasada && s.ev.date.slice(0, 7) === mesFactura && s.p.sinVincular.length);
+  if (sinV.length) avisos.unshift(`${plural(sinV.length, "clase tiene", "clases tienen")} nombres sin vincular y no ${sinV.length === 1 ? "está" : "están"} en la factura: ${[...new Set(sinV.flatMap(s => s.p.sinVincular))].map(n => "«" + n + "»").join(", ")}.`);
+  if (acFactura === "lsi-karmele") {
+    const sp = m.consumos.filter(c => c.academiaId === acFactura && c.sinPack && c.fecha.slice(0, 7) === mesFactura);
+    if (sp.length) avisos.push(`${plural(sp.length, "clase sin pack no se ha facturado", "clases sin pack no se han facturado")}. Revisa los packs en «Packs y renovaciones».`);
+  }
+  return { ...f, avisos: [...new Set(avisos)] };
+}
+const euros = n => n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+function vFactura(){
+  const f = datosFactura(), irene = acFactura === "spanish-with-irene";
+  const porPersona = new Map();
+  for (const l of f.lineas) { const k = l.detalle.replace(/ \(\d+\.ª\)/g, ""); const x = porPersona.get(k) || { n: 0, total: 0 }; x.n++; x.total += l.importe; porPersona.set(k, x); }
+  const ind = f.lineas.filter(l => l.concepto === "Clase individual").length, par = f.lineas.filter(l => l.concepto === "Clase en pareja").length;
+  const packsL = f.lineas.filter(l => l.packId), sueltas = f.lineas.filter(l => !l.packId);
+  return `${aviso()}
+  ${head("Mi espacio de profe", "Factura del mes", irene ? "Las clases dadas en el mes, a 17/19 € individual y 21/23 € en pareja según el número de clases de cada alumno." : "Los packs comprados en el mes y las clases sueltas dadas en el mes.", `<div class="seg" role="group" aria-label="Academia">
+    <button type="button" data-fac="spanish-with-irene" aria-pressed="${irene}">Spanish with Irene</button><button type="button" data-fac="lsi-karmele" aria-pressed="${!irene}">LSI Karmele</button></div>`, "var(--burdeos)")}
+  <div class="tools"><div class="monthnav"><button class="iconbtn" type="button" data-mesf="-1" aria-label="Mes anterior">${ic("left")}</button><b>${cap(mesNombre(mesFactura))}</b><button class="iconbtn" type="button" data-mesf="1" aria-label="Mes siguiente">${ic("right")}</button></div>
+    ${f.lineas.length ? `<button class="btn" type="button" id="csv">Descargar CSV</button>` : ""}</div>
+  <div class="ledger">
+    <div><span class="v">${euros(f.total)}</span><span class="l">Total de ${esc(mesNombre(mesFactura))}</span></div>
+    ${irene ? `<div><span class="v">${ind}</span><span class="l">Clases individuales</span></div><div><span class="v">${par}</span><span class="l">Clases en pareja</span></div>`
+      : `<div><span class="v">${packsL.length}</span><span class="l">Packs comprados</span></div><div><span class="v">${sueltas.length}</span><span class="l">Clases sueltas</span></div>`}
+    <div><span class="v">${porPersona.size}</span><span class="l">${irene ? "Alumnos y parejas" : "Alumnos"}</span></div>
+  </div>
+  ${f.avisos.length ? `<ul class="alerts">${f.avisos.map(t => `<li><span class="dot urgent"></span><div><b>${esc(t)}</b></div><span></span></li>`).join("")}</ul>` : ""}
+  ${f.lineas.length ? `<div class="cols">
+    <section class="section"><header><h2>Detalle</h2><span class="muted" style="font-size:.8rem">${plural(f.lineas.length, "línea", "líneas")}</span></header>
+      <div class="twrap"><table class="fac"><thead><tr><th>Fecha</th><th>Concepto</th><th>${irene ? "Alumno (n.º de clase)" : "Alumno"}</th>${irene ? "<th>Tramo</th>" : ""}<th class="n">Importe</th></tr></thead>
+      <tbody>${f.lineas.map(l => `<tr class="static"><td>${fechaCorta(l.fecha)}</td><td>${esc(l.concepto)}</td><td>${esc(l.detalle)}</td>${irene ? `<td>${l.tramo === "1–12" ? "1–12" : "13 en adelante"}</td>` : ""}<td class="n">${euros(l.importe)}</td></tr>`).join("")}</tbody>
+      <tfoot><tr><td colspan="${irene ? 4 : 3}"><b>Total</b></td><td class="n"><b>${euros(f.total)}</b></td></tr></tfoot></table></div></section>
+    <section class="section"><header><h2>Por ${irene ? "alumno o pareja" : "alumno"}</h2></header>
+      <div class="twrap" style="border-top:0"><table class="fac" style="min-width:0"><tbody>${[...porPersona.entries()].sort((a, b) => b[1].total - a[1].total).map(([k, x]) => `<tr class="static"><td>${esc(k)}</td><td class="n muted">${x.n}</td><td class="n">${euros(x.total)}</td></tr>`).join("")}</tbody></table></div></section>
+  </div>` : `<p class="empty">No hay nada que facturar a ${esc(acad(acFactura).nombre)} en ${esc(mesNombre(mesFactura))}.</p>`}`;
+}
+function descargarCSV(){
+  const f = datosFactura(), irene = acFactura === "spanish-with-irene";
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const filas = [["Fecha", "Concepto", "Alumno", ...(irene ? ["Tramo"] : []), "Importe (€)"]];
+  for (const l of f.lineas) filas.push([l.fecha, l.concepto, l.detalle, ...(irene ? [l.tramo] : []), l.importe.toFixed(2).replace(".", ",")]);
+  filas.push(["", "Total", "", ...(irene ? [""] : []), f.total.toFixed(2).replace(".", ",")]);
+  const csv = "﻿" + filas.map(r => r.map(q).join(";")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `factura-${acFactura === "lsi-karmele" ? "lsi" : "irene"}-${mesFactura}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 const PEND = {
   "profe-seguimiento": ["Mi espacio de profe", "Seguimiento académico", "Nivel, evaluaciones, destrezas, objetivos y próxima revisión de cada alumno."],
   "profe-actividad": ["Mi espacio de profe", "Mi actividad docente", "Clases, horas, alumnos atendidos, packs terminados y renovaciones por mes."],
-  "profe-factura": ["Mi espacio de profe", "Factura del mes", "Lo que facturas a Irene y a LSI cada mes, calculado desde la agenda, con exportación a CSV."],
   "coord-resumen": ["Jefa de estudios", "Resumen de coordinación", "Cifras de la academia, alertas y carga del profesorado."],
   "coord-alumnado": ["Jefa de estudios", "Alumnado", "Todo el alumnado de Spanish with Irene, también el de otros profesores."],
   "coord-matching": ["Jefa de estudios", "Matching y agrupaciones", "Propuestas de parejas y grupos que solo se crean si las apruebas."],
@@ -431,6 +485,14 @@ const puedeEscribir = () => S.sesion === "demo" || (S.sesion === "dentro" && !S.
 const configurado = () => (S.rincon.academias || []).length > 0;
 
 /** Lo que se guarda la primera vez: academias, tarifas, ajustes generales y tu ficha de profesora. */
+const TARIFAS_BASE = (() => { const IRE = "spanish-with-irene", LSI = "lsi-karmele", desde = "2026-01-01"; return [
+    { coleccion: "tarifas", id: "irene-2026", nuevo: true, datos: { academiaId: IRE, nombre: "Clases Spanish with Irene", concepto: "honorarios_profesora", tipo: "por_clase_escalonada",
+      contador: "acumulado_alumno", reglaPareja: "si_alguno_supera_tramo", moneda: "EUR", vigenteDesde: desde,
+      tramos: [{ desdeClase: 1, hastaClase: 12, individual: 17, pareja: 21 }, { desdeClase: 13, hastaClase: null, individual: 19, pareja: 23 }] } },
+    { coleccion: "tarifas", id: "lsi-adultos-2026", nuevo: true, datos: { academiaId: LSI, nombre: "Pack adultos", categoria: "adultos", tipo: "pack", clases: 10, precio: 180, moneda: "EUR", vigenteDesde: desde } },
+    { coleccion: "tarifas", id: "lsi-apoyo-2026", nuevo: true, datos: { academiaId: LSI, nombre: "Pack apoyo", categoria: "apoyo", tipo: "pack", clases: 10, precio: 190, moneda: "EUR", vigenteDesde: desde } },
+    { coleccion: "tarifas", id: "lsi-suelta-2026", nuevo: true, datos: { academiaId: LSI, nombre: "Clase suelta", tipo: "por_clase_duracion", precios: [{ minutos: 45, precio: 15 }, { minutos: 60, precio: 19 }], moneda: "EUR", vigenteDesde: desde } }
+]; })();
 function baseInicial(){
   if (configurado()) return [];
   const ac = academias();
@@ -438,12 +500,7 @@ function baseInicial(){
     nombre: a.nombre, nombreCorto: a.corto, tiposAgenda: a.tiposAgenda, enMiEspacio: a.enMiEspacio, coordinada: a.coordinada, packsHabituales: a.packsHabituales, activa: true } }));
   const IRE = "spanish-with-irene", LSI = "lsi-karmele", desde = "2026-01-01";
   out.push(
-    { coleccion: "tarifas", id: "irene-2026", nuevo: true, datos: { academiaId: IRE, nombre: "Clases Spanish with Irene", concepto: "honorarios_profesora", tipo: "por_clase_escalonada",
-      contador: "acumulado_alumno", reglaPareja: "si_alguno_supera_tramo", moneda: "EUR", vigenteDesde: desde,
-      tramos: [{ desdeClase: 1, hastaClase: 12, individual: 17, pareja: 21 }, { desdeClase: 13, hastaClase: null, individual: 19, pareja: 23 }] } },
-    { coleccion: "tarifas", id: "lsi-adultos-2026", nuevo: true, datos: { academiaId: LSI, nombre: "Pack adultos", categoria: "adultos", tipo: "pack", clases: 10, precio: 180, moneda: "EUR", vigenteDesde: desde } },
-    { coleccion: "tarifas", id: "lsi-apoyo-2026", nuevo: true, datos: { academiaId: LSI, nombre: "Pack apoyo", categoria: "apoyo", tipo: "pack", clases: 10, precio: 190, moneda: "EUR", vigenteDesde: desde } },
-    { coleccion: "tarifas", id: "lsi-suelta-2026", nuevo: true, datos: { academiaId: LSI, nombre: "Clase suelta", tipo: "por_clase_duracion", precios: [{ minutos: 45, precio: 15 }, { minutos: 60, precio: 19 }], moneda: "EUR", vigenteDesde: desde } },
+    ...TARIFAS_BASE,
     { coleccion: "config", id: "general", nuevo: true, datos: { umbrales: { renovacion: 3, urgente: 1 }, niveles: NIVELES, nivelesDestrezas: NIVELES,
       destrezas: ["CL", "CA", "EE", "EO", "IO"], modalidades: ["individual", "pareja", "grupo"] } }
   );
@@ -1027,7 +1084,7 @@ function pintarFicha(){
 
 /* ================= router y pantallas ================= */
 const VISTAS = { inicio: vInicio, calendario: vCalendario, "profe-resumen": vProfeResumen, "profe-alumnos": vProfeAlumnos, "profe-vincular": vVincular,
-  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias };
+  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura };
 
 /** Agrupa los datos que llegan de golpe (por ejemplo al volver a la ventana) en un solo redibujado. */
 let renderPendiente = false;
@@ -1071,6 +1128,9 @@ function pintar(){
     [["fnivel", "nivel"], ["festado", "estado"], ["fpago", "pago"]].forEach(([id, k]) => v.querySelector("#" + id).onchange = e => { fAl[k] = e.target.value; render(); });
   }
   const ct = v.querySelector("#confirmarTipos"); if (ct) ct.onclick = () => guardar(baseInicial(), "Configuración inicial", "Configuración guardada: academias, tarifas y avisos.");
+  v.querySelectorAll("[data-fac]").forEach(b => b.onclick = () => { acFactura = b.dataset.fac; render(); });
+  v.querySelectorAll("[data-mesf]").forEach(b => b.onclick = () => { mesFactura = sumarMes(mesFactura, Number(b.dataset.mesf)); render(); });
+  const csv = v.querySelector("#csv"); if (csv) csv.onclick = descargarCSV;
   v.querySelectorAll("[data-fichapk]").forEach(b => b.onclick = () => abrirFicha(b.dataset.fichapk, "packs"));
   v.querySelectorAll("[data-clase]").forEach(tr => { tr.onclick = () => formClase(tr.dataset.clase); tr.onkeydown = e => { if (e.key === "Enter") formClase(tr.dataset.clase); }; });
   const pf = v.querySelector("#prefs");
@@ -1119,7 +1179,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28f");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28g");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1138,7 +1198,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28f");
+    D = await import("./datos.js?v=2026-11-28g");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
