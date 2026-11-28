@@ -345,3 +345,11 @@ table.fac tfoot td{padding:12px;border-top:2px solid var(--line)}
 .notas li{padding:12px 0;border-bottom:1px solid var(--line-soft)}
 .notas .nh{display:flex;justify-content:space-between;align-items:center}
 .vencida{color:var(--urgent);font-weight:600}
+
+/* ---------- jefa de estudios ---------- */
+.btn.primary.oliva{background:var(--oliva);border-color:var(--oliva)}
+.franjas{list-style:none;margin:0 0 6px;padding:0;display:flex;flex-direction:column;gap:6px}
+.franjas li{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.franjas select,.franjas input{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 8px;font:inherit;font-size:.88rem;color:var(--ink)}
+.facts .full{grid-column:1 / -1}
+.st-pendiente{color:var(--urgent)}

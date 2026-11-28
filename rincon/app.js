@@ -1,6 +1,6 @@
 // Mi rincón de profe · interfaz
-export const VERSION = "2026-11-28i";
-import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28i";
+export const VERSION = "2026-11-28j";
+import { calcular, factura, eventosValidos, academiaDeEvento, participantes, aliasId, esPasada, duracion, dayKey, mins, ESTADOS_CLASE } from "./calculo.js?v=2026-11-28j";
 
 const DEMO = new URLSearchParams(location.search).has("demo");
 let D = null;   // módulo de datos (Firebase); no se carga en modo demostración
@@ -272,7 +272,7 @@ function vProfeAlumnos(){
   <div class="twrap"><table><thead><tr><th>Alumno</th><th>Academia</th><th>Nivel</th><th>Modalidad</th><th>Profesora</th><th>Pack actual</th><th class="n">Realizadas</th><th class="n">Restantes</th><th>Estado</th></tr></thead>
     <tbody>${al.map(a => { const st = m.porAlumno.get(a.id), pk = st && st.actual, prev = st ? st.previasTarifa : 0, dadas = (st ? st.consumos.filter(c => c.cuenta).length : 0) + prev;
       return `<tr data-ficha="${a.id}" tabindex="0"><td><span class="name${resaltado(a.id)}">${esc(nombreCompleto(a))}</span><small>${esc(aliasDe(a.id).map(z => "«" + z.texto + "»").join(", ") || "Sin nombre de agenda vinculado")}</small></td>
-      <td>${chip(a.academiaId)}</td><td>${esc(nivelActual(a) || "—")}</td><td>${modalidad(st)}</td><td>Sara</td>
+      <td>${chip(a.academiaId)}</td><td>${esc(nivelActual(a) || "—")}</td><td>${modalidad(st)}</td><td>${(() => { const x = asignacionActual(a.id); return x ? esc(nombreProf(x.profesorId)) : "—"; })()}</td>
       <td>${a.modoPago === "por_clase" ? '<span class="muted">Clase a clase</span>' : pk ? esc(pk.pack.nombre || "Pack") : '<span class="muted">Sin pack</span>'}</td>
       <td class="n">${pk ? pk.realizadas : dadas}</td><td class="n">${pk ? pk.restantes : "—"}</td>
       <td><span class="state st-${a.estado === "activo" ? "activo" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado)}</span></td></tr>`; }).join("")}</tbody></table>
@@ -516,11 +516,81 @@ function vActividad(){
   </div>`;
 }
 
+/* ================= Jefa de estudios ================= */
+const headCoord = (title, intro, side = "") => head("Jefa de estudios · Spanish with Irene", title, intro, side, "var(--oliva)");
+let fCo = { q: "", estado: "", nivel: "", prof: "", mod: "" };
+function vAlumnado(){
+  const todos = alumnadoIrene();
+  const filas = todos.map(a => ({ a, act: asignacionActual(a.id) })).filter(({ a, act }) =>
+    (!fCo.q || nombreCompleto(a).toLowerCase().includes(fCo.q.toLowerCase())) && (!fCo.estado || a.estado === fCo.estado) && (!fCo.nivel || nivelActual(a) === fCo.nivel)
+    && (!fCo.prof || (fCo.prof === "-" ? !act : act && act.profesorId === fCo.prof)) && (!fCo.mod || (act ? act.modalidad : a.modalidadPreferida) === fCo.mod))
+    .sort((x, y) => nombreCompleto(x.a).localeCompare(nombreCompleto(y.a), "es"));
+  const opt = (k, list) => list.map(([v, l]) => `<option value="${v}"${fCo[k] === v ? " selected" : ""}>${esc(l)}</option>`).join("");
+  return `${aviso()}
+  ${headCoord("Alumnado", "Todo el alumnado de Spanish with Irene, también el de otros profesores. Es la misma ficha que en Mi espacio de profe.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoCoord">+ Nuevo alumno</button>` : "")}
+  <div class="tools">
+    <input id="cq" type="search" placeholder="Buscar por nombre" value="${esc(fCo.q)}" aria-label="Buscar alumno">
+    <select id="cestado" aria-label="Estado">${opt("estado", [["", "Todos los estados"], ...Object.entries(ESTADOS_ALUMNO)])}</select>
+    <select id="cnivel" aria-label="Nivel">${opt("nivel", [["", "Todos los niveles"], ...NIVELES.map(n => [n, n])])}</select>
+    <select id="cprof" aria-label="Profesor">${opt("prof", [["", "Todos los profesores"], ["-", "Sin asignar"], ...profesores().map(p => [p.id, p.esYo ? "Sara (yo)" : p.nombre])])}</select>
+    <select id="cmod" aria-label="Modalidad">${opt("mod", [["", "Todas las modalidades"], ...Object.entries(MODALIDADES)])}</select>
+  </div>
+  ${todos.length ? `<div class="twrap"><table><thead><tr><th>Alumno</th><th>Edad</th><th>Nivel</th><th>Objetivo</th><th>Modalidad</th><th>Profesor</th><th>Disponibilidad</th><th>Estado</th></tr></thead>
+    <tbody>${filas.map(({ a, act }) => `<tr data-fcoord="${a.id}" tabindex="0"><td><span class="name">${esc(nombreCompleto(a))}</span>${a.nacionalidad ? `<small>${esc(a.nacionalidad)}</small>` : ""}</td>
+      <td>${a.edad ?? "—"}</td><td>${esc(nivelActual(a) || "—")}</td><td>${esc(a.nivelObjetivo || "—")}</td><td>${esc(MODALIDADES[act ? act.modalidad : a.modalidadPreferida] || "—")}</td>
+      <td>${act ? esc(nombreProf(act.profesorId)) : '<span class="state st-pendiente">Sin asignar</span>'}</td><td><small>${esc(textoFranjas(disponibilidadDe(a.id)) || "—")}</small></td>
+      <td><span class="state st-${a.estado === "pendiente" ? "pendiente" : a.estado === "activo" ? "activo" : ["propuesta", "temporal"].includes(a.estado) ? "propuesta" : "pausa"}">${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</span></td></tr>`).join("")}</tbody></table>
+    ${filas.length ? "" : `<p class="empty">Ningún alumno coincide con estos filtros.</p>`}</div>`
+    : `<p class="empty">Todavía no hay alumnos de Spanish with Irene. Los que crees desde tu agenda aparecen aquí; los de otros profesores añádelos con «+ Nuevo alumno».</p>`}`;
+}
+
+function vProfesorado(){
+  const carga = cargaProfesores();
+  return `${aviso()}
+  ${headCoord("Profesorado", "Una ficha por profesor con su disponibilidad y su carga de trabajo. Las horas salen del horario de sus asignaciones.", puedeEscribir() ? `<button class="btn primary oliva" type="button" id="nuevoProf">+ Nuevo profesor</button>` : "")}
+  ${carga.length ? `<div class="twrap"><table><thead><tr><th>Profesor</th><th>Niveles</th><th>Modalidades</th><th>Especialidades</th><th class="n">Alumnos</th><th>Carga semanal</th><th>Disponibilidad</th></tr></thead>
+    <tbody>${carga.map(({ p, alumnos, horas: h, cap }) => `<tr data-prof="${p.id}" tabindex="0"><td><span class="name">${esc(p.esYo ? "Sara (yo)" : p.nombre)}</span></td>
+      <td>${esc((p.niveles || []).join(", ") || "—")}</td><td>${esc((p.modalidades || []).map(x => MODALIDADES[x]).join(", ") || "—")}</td><td><small>${esc((p.especialidades || []).join(", ") || "—")}</small></td>
+      <td class="n">${alumnos.length}</td><td><div class="load"><div class="row" style="grid-template-columns:minmax(80px,1fr) 70px"><span class="bar"><b class="${cap && h >= cap ? "full" : ""}" style="width:${cap ? Math.min(100, Math.round(h / cap * 100)) : 0}%"></b></span><span class="num">${String(Math.round(h * 10) / 10).replace(".", ",")}/${cap || "—"} h</span></div></div></td>
+      <td><small>${esc(textoFranjas(disponibilidadDe(p.id)) || "—")}</small></td></tr>`).join("")}</tbody></table></div>`
+    : `<p class="empty">Todavía no hay profesores. Añádelos con «+ Nuevo profesor».</p>`}
+  <p class="note">Las horas de carga se calcularán a partir del horario de cada asignación, que se define en «Horarios y asignaciones» (siguiente paso).</p>`;
+}
+
+function vCoordResumen(){
+  const al = alumnadoIrene(), c = e => al.filter(a => a.estado === e).length, mes = mesKey(new Date());
+  const carga = cargaProfesores(), pend = al.filter(a => a.estado === "pendiente" || (a.estado === "activo" && !asignacionActual(a.id)));
+  const parejas = (S.rincon.grupos || []).filter(g => g.estado === "activo" && g.tipo === "pareja").length, grupos = (S.rincon.grupos || []).filter(g => g.estado === "activo" && g.tipo !== "pareja").length;
+  const incid = (S.rincon.incidencias || []).filter(i => i.estado !== "resuelta");
+  const nuevos = al.filter(a => a.creadoEn && mesKey(new Date(a.creadoEn)) === mes).length;
+  const alertas = [
+    ...pend.map(a => ({ cls: "urgent", t: `${nombreCompleto(a)} espera profesor`, s: `${nivelActual(a) || "Sin nivel"} · ${MODALIDADES[a.modalidadPreferida] || ""}${textoFranjas(disponibilidadDe(a.id)) ? " · " + textoFranjas(disponibilidadDe(a.id)) : ""}`, id: a.id })),
+    ...carga.filter(x => x.cap && x.horas >= x.cap).map(x => ({ cls: "", t: `${x.p.nombre} está al 100 % de su capacidad`, s: `${String(Math.round(x.horas * 10) / 10).replace(".", ",")} de ${x.cap} horas semanales` })),
+    ...al.filter(a => a.estado === "temporal" || a.estado === "propuesta").map(a => ({ cls: "coord", t: `${nombreCompleto(a)}: ${ESTADOS_ALUMNO[a.estado].toLowerCase()}`, s: "Revisa si se confirma", id: a.id }))
+  ];
+  return `${aviso()}
+  ${headCoord("Resumen de coordinación", "Todo el alumnado de la academia, también el que no es tuyo.")}
+  <div class="ledger">
+    <div><span class="v">${al.length}</span><span class="l">Alumnos en total</span></div>
+    <div><span class="v">${c("activo")}</span><span class="l">Activos</span></div>
+    <div><span class="v">${c("pausa")}</span><span class="l">En pausa</span></div>
+    <div class="urg"><span class="v">${pend.length}</span><span class="l">Pendientes de asignación</span></div>
+    <div><span class="v">${parejas}</span><span class="l">Parejas activas</span></div>
+    <div><span class="v">${grupos}</span><span class="l">Grupos activos</span></div>
+    <div><span class="v">${carga.filter(x => !x.cap || x.horas < x.cap).length}</span><span class="l">Profesores con hueco</span></div>
+    <div class="warn"><span class="v">${incid.length}</span><span class="l">Incidencias pendientes</span></div>
+    <div><span class="v">${nuevos}</span><span class="l">Incorporaciones en ${MN[new Date().getMonth()]}</span></div>
+  </div>
+  <div class="cols">
+    <section class="section"><header><h2>Alertas de coordinación</h2><span class="muted" style="font-size:.8rem">${plural(alertas.length, "alerta", "alertas")}</span></header>
+      ${alertas.length ? `<ul class="alerts">${alertas.map(a => `<li><span class="dot ${a.cls}"></span><div><b>${esc(a.t)}</b><small>${esc(a.s)}</small></div>${a.id ? `<button class="link" type="button" data-fcoord="${a.id}" style="color:var(--oliva)">Ver ficha</button>` : "<span></span>"}</li>`).join("")}</ul>` : `<p class="empty">Todo en orden.</p>`}</section>
+    <section class="section"><header><h2>Carga del profesorado</h2><button class="link" type="button" data-go="coord-profesorado" style="color:var(--oliva)">Profesorado</button></header>
+      ${carga.length ? `<div class="load">${carga.map(x => `<div class="row"><span>${esc(x.p.esYo ? "Sara (yo)" : x.p.nombre)}</span><span class="bar"><b class="${x.cap && x.horas >= x.cap ? "full" : ""}" style="width:${x.cap ? Math.min(100, Math.round(x.horas / x.cap * 100)) : 0}%"></b></span><span class="num">${x.alumnos.length} al.</span></div>`).join("")}</div>` : `<p class="empty">Añade el profesorado en «Profesorado».</p>`}</section>
+  </div>`;
+}
+
 const PEND = {
-  "coord-resumen": ["Jefa de estudios", "Resumen de coordinación", "Cifras de la academia, alertas y carga del profesorado."],
-  "coord-alumnado": ["Jefa de estudios", "Alumnado", "Todo el alumnado de Spanish with Irene, también el de otros profesores."],
   "coord-matching": ["Jefa de estudios", "Matching y agrupaciones", "Propuestas de parejas y grupos que solo se crean si las apruebas."],
-  "coord-profesorado": ["Jefa de estudios", "Profesorado", "Ficha de cada profesor y su carga de trabajo."],
   "coord-horarios": ["Jefa de estudios", "Horarios y asignaciones", "Horarios, huecos libres e incompatibilidades."],
   "coord-seguimiento": ["Jefa de estudios", "Seguimiento académico", "Evolución del alumnado y quién necesita seguimiento."],
   "coord-incidencias": ["Jefa de estudios", "Incidencias", "Registro de incidencias con prioridad, estado y solución."],
@@ -593,7 +663,10 @@ const misAcademias = () => academias().filter(a => a.enMiEspacio);
 const aliasDe = alumnoId => (S.rincon.alias || []).filter(a => a.alumnoId === alumnoId || (a.alumnoIds || []).includes(alumnoId));
 const nombreCompleto = a => [a.nombre, a.apellidos].filter(Boolean).join(" ");
 const misAlumnos = () => {
-  const mios = new Set((S.rincon.asignaciones || []).filter(x => x.profesorId === YO && x.destino && x.destino.tipo === "alumno").map(x => x.destino.id));
+  const asig = (S.rincon.asignaciones || []).filter(x => x.destino && x.destino.tipo === "alumno"), hoy = dayKey(new Date());
+  const actual = new Map(), mioAlgunaVez = new Set();
+  for (const x of asig) { if (x.profesorId === YO) mioAlgunaVez.add(x.destino.id); if (!x.hasta || x.hasta > hoy) actual.set(x.destino.id, x.profesorId); }
+  const mios = new Set([...mioAlgunaVez].filter(id => !actual.has(id) || actual.get(id) === YO));
   const enMi = new Set(misAcademias().map(a => a.id));
   return (S.rincon.alumnos || []).filter(a => enMi.has(a.academiaId) && mios.has(a.id));
 };
@@ -1180,6 +1253,7 @@ function conectarTabsFicha(a){
     };
   }
   const ne = root.querySelector("#nuevaEval"); if (ne) ne.onclick = () => formEvaluacion(a);
+  const ec = root.querySelector("#editCoord"); if (ec) ec.onclick = () => formAlumnoCoord(a);
   root.querySelectorAll("[data-editeval]").forEach(b => b.onclick = () => formEvaluacion(a, evaluacionesDe(a.id).find(e => e.id === b.dataset.editeval)));
   root.querySelectorAll("[data-borraeval]").forEach(b => b.onclick = () => confirmar("Eliminar evaluación", "Se borrará esta evaluación. No se puede deshacer.", "Eliminar",
     motivo => guardar([{ coleccion: "evaluaciones", id: b.dataset.borraeval, datos: null }], motivo || "Eliminar evaluación", "Evaluación eliminada."), true));
@@ -1198,6 +1272,169 @@ function conectarTabsFicha(a){
     motivo => guardar([{ coleccion: "observaciones", id: b.dataset.borranota, datos: null }], motivo || "Eliminar nota", "Nota eliminada."), true));
 }
 
+/* ================= coordinación: profesorado, asignaciones y disponibilidad ================= */
+const IRENE = "spanish-with-irene";
+const DIAS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const MODALIDADES = { individual: "Individual", pareja: "Pareja", grupo: "Grupo" };
+const profesores = () => (S.rincon.profesores || []).filter(p => p.activo !== false).sort((a, b) => (b.esYo ? 1 : 0) - (a.esYo ? 1 : 0) || a.nombre.localeCompare(b.nombre, "es"));
+const profById = id => (S.rincon.profesores || []).find(p => p.id === id) || (id === YO ? { id: YO, nombre: "Sara", esYo: true } : null);
+const nombreProf = id => { const p = profById(id); return p ? (p.esYo ? "Sara (yo)" : p.nombre) : "—"; };
+const hoyK = () => dayKey(new Date());
+/** Asignaciones vigentes (sin fecha de fin o con fin futuro). */
+const vigente = x => !x.hasta || x.hasta > hoyK();   // cerrada hoy = ya no vigente
+const asignacionesDe = alumnoId => (S.rincon.asignaciones || []).filter(x => x.destino && x.destino.tipo === "alumno" && x.destino.id === alumnoId).sort((a, b) => (a.desde || "") < (b.desde || "") ? 1 : -1);
+const asignacionActual = alumnoId => asignacionesDe(alumnoId).find(vigente) || null;
+const alumnadoIrene = () => (S.rincon.alumnos || []).filter(a => a.academiaId === IRENE);
+const disponibilidadDe = id => (S.rincon.disponibilidad || []).find(d => d.id === id) || null;
+const textoFranjas = d => d && d.franjas && d.franjas.length ? d.franjas.map(f => `${DIAS[f.dia].slice(0, 3)} ${f.inicio}–${f.fin}`).join(" · ") : "";
+const minutosHorario = h => (h || []).reduce((t, f) => t + Math.max(0, mins(f.fin) - mins(f.inicio)), 0);
+
+/** Cambios para asignar un profesor: cierra la asignación vigente y abre otra. */
+function cambiosAsignar(alumno, profesorId, modalidad, horario){
+  const act = asignacionActual(alumno.id), hoy = hoyK(), out = [];
+  if (act && act.profesorId === profesorId) {
+    out.push({ coleccion: "asignaciones", id: act.id, datos: { ...sinId(act), modalidad: modalidad || act.modalidad, ...(horario ? { horario } : {}) } });
+    return out;
+  }
+  if (act) out.push({ coleccion: "asignaciones", id: act.id, datos: { ...sinId(act), hasta: hoy, estado: "finalizada" } });
+  if (profesorId) out.push({ coleccion: "asignaciones", id: D.nuevoId("asignaciones", "as"), nuevo: true,
+    datos: { destino: { tipo: "alumno", id: alumno.id }, profesorId, modalidad: modalidad || "individual", estado: "confirmada", desde: hoy, hasta: null, horario: horario || [] } });
+  return out;
+}
+
+/** Editor de franjas horarias (disponibilidad o horario). */
+function editorFranjas(id, franjas){
+  const fila = f => `<li><select data-dia>${DIAS.slice(1).map((d, i) => `<option value="${i + 1}"${f && f.dia === i + 1 ? " selected" : ""}>${d}</option>`).join("")}</select>
+    <input type="time" data-ini value="${f ? esc(f.inicio) : "17:00"}" step="900"><span>–</span><input type="time" data-fin value="${f ? esc(f.fin) : "18:00"}" step="900">
+    <button type="button" class="iconbtn" data-quitarf aria-label="Quitar franja">✕</button></li>`;
+  return `<ul class="franjas" id="${id}">${(franjas || []).map(fila).join("")}</ul><button type="button" class="link" data-addf="${id}" style="align-self:flex-start">+ Añadir franja</button><template id="${id}_t">${fila(null)}</template>`;
+}
+function conectarFranjas(root){
+  const quitar = () => root.querySelectorAll("[data-quitarf]").forEach(b => b.onclick = () => b.closest("li").remove());
+  quitar();
+  root.querySelectorAll("[data-addf]").forEach(b => b.onclick = () => {
+    const ul = root.querySelector("#" + b.dataset.addf), t = root.querySelector("#" + b.dataset.addf + "_t");
+    ul.insertAdjacentHTML("beforeend", t.innerHTML); quitar();
+  });
+}
+function leerFranjas(root, id){
+  const out = [];
+  for (const li of root.querySelectorAll(`#${id} li`)) {
+    const dia = Number(li.querySelector("[data-dia]").value), inicio = li.querySelector("[data-ini]").value, fin = li.querySelector("[data-fin]").value;
+    if (!inicio || !fin) continue;
+    if (mins(fin) <= mins(inicio)) return { error: `En ${DIAS[dia]}, la hora de fin tiene que ser posterior a la de inicio.` };
+    out.push({ dia, inicio, fin });
+  }
+  return { franjas: out.sort((a, b) => a.dia - b.dia || mins(a.inicio) - mins(b.inicio)) };
+}
+
+/** Alta o edición de un alumno de la academia desde Jefa de estudios. */
+function formAlumnoCoord(alumno){
+  const nuevo = !alumno, a = alumno || { nombre: "", apellidos: "", edad: null, nacionalidad: "", lenguaMaterna: "", nivelInicial: "", nivelObjetivo: "", modalidadPreferida: "individual", estado: "pendiente", modoPago: "pack" };
+  const act = alumno ? asignacionActual(alumno.id) : null, disp = alumno ? disponibilidadDe(alumno.id) : null;
+  const m = modal(`
+    <h2>${nuevo ? "Nuevo alumno · Spanish with Irene" : "Coordinación · " + esc(nombreCompleto(a))}</h2>
+    <form id="fac" class="fgrid" novalidate>
+      ${nuevo ? `<label class="field">Nombre<input id="c_nombre" maxlength="60"></label><label class="field">Apellidos<input id="c_apellidos" maxlength="80"></label>` : ""}
+      <label class="field">Edad<input id="c_edad" type="number" min="3" max="99" step="1" value="${a.edad ?? ""}"></label>
+      <label class="field">Nacionalidad<input id="c_nac" value="${esc(a.nacionalidad || "")}" maxlength="40"></label>
+      <label class="field">Nivel inicial<select id="c_ini"><option value="">Sin nivel</option>${NIVELES.map(n => `<option${n === a.nivelInicial ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label class="field">Nivel objetivo<select id="c_obj"><option value="">Sin indicar</option>${NIVELES.map(n => `<option${n === a.nivelObjetivo ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label class="field">Modalidad preferida<select id="c_mod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${k === a.modalidadPreferida ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="field">Estado<select id="c_estado">${Object.entries(ESTADOS_ALUMNO).map(([k, l]) => `<option value="${k}"${k === a.estado ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="field">Profesor asignado<select id="c_prof"><option value="">Sin asignar</option>${profesores().map(p => `<option value="${p.id}"${act && act.profesorId === p.id ? " selected" : ""}>${esc(p.esYo ? "Sara (yo)" : p.nombre)}</option>`).join("")}</select></label>
+      <label class="field">Modalidad de la asignación<select id="c_amod">${Object.entries(MODALIDADES).map(([k, l]) => `<option value="${k}"${(act ? act.modalidad : a.modalidadPreferida) === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <fieldset class="field full"><legend>Disponibilidad horaria <span class="muted">(hora de España)</span></legend>${editorFranjas("c_disp", disp && disp.franjas)}</fieldset>
+      <label class="field full">Observaciones de coordinación<textarea id="c_obs" rows="2" maxlength="1000">${esc(a.observacionesCoord || "")}</textarea></label>
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+    </form>`);
+  conectarFranjas(m);
+  const prof = m.querySelector("#c_prof"), est = m.querySelector("#c_estado");
+  prof.onchange = () => { if (prof.value && est.value === "pendiente") est.value = "activo"; if (!prof.value && est.value === "activo") est.value = "pendiente"; };
+  m.querySelector("#fac").onsubmit = ev => {
+    ev.preventDefault();
+    const err = m.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
+    const edadTxt = m.querySelector("#c_edad").value.trim(), edad = edadTxt === "" ? null : Number(edadTxt);
+    if (edad != null && (!Number.isInteger(edad) || edad < 3 || edad > 99)) return fail("La edad tiene que ser un número entre 3 y 99.");
+    const fr = leerFranjas(m, "c_disp"); if (fr.error) return fail(fr.error);
+    const datos = { ...(alumno ? sinId(alumno) : { academiaId: IRENE, modoPago: "pack", lenguaMaterna: "", clasesPreviasTarifa: null, creadoEn: Date.now() }),
+      edad, nacionalidad: m.querySelector("#c_nac").value.trim(), nivelInicial: m.querySelector("#c_ini").value, nivelObjetivo: m.querySelector("#c_obj").value,
+      modalidadPreferida: m.querySelector("#c_mod").value, estado: est.value, observacionesCoord: m.querySelector("#c_obs").value.trim() };
+    if (nuevo) { datos.nombre = m.querySelector("#c_nombre").value.trim(); datos.apellidos = m.querySelector("#c_apellidos").value.trim(); if (!datos.nombre) return fail("Escribe el nombre del alumno."); }
+    if (prof.value && est.value === "pendiente") return fail("Si tiene profesor asignado, el estado no puede ser «Pendiente de asignación».");
+    const id = alumno ? alumno.id : D.nuevoId("alumnos", "al"), al = { ...datos, id };
+    const cambios = [...baseInicial(), { coleccion: "alumnos", id, nuevo, datos },
+      ...cambiosAsignar(al, prof.value || null, m.querySelector("#c_amod").value, null)];
+    if (fr.franjas.length || disponibilidadDe(id)) cambios.push({ coleccion: "disponibilidad", id, nuevo: !disponibilidadDe(id), datos: { personaTipo: "alumno", zonaHoraria: "Europe/Madrid", franjas: fr.franjas } });
+    guardar(cambios, nuevo ? "Nuevo alumno (coordinación)" : "Coordinación del alumno", nuevo ? `${datos.nombre} añadido al alumnado.` : "Datos de coordinación guardados.");
+  };
+}
+
+function tabCoordinacion(a){
+  const act = asignacionActual(a.id), hist = asignacionesDe(a.id), disp = disponibilidadDe(a.id);
+  return `
+    <dl class="facts">
+      <div><dt>Estado</dt><dd>${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</dd></div><div><dt>Edad</dt><dd>${a.edad ?? "—"}</dd></div>
+      <div><dt>Nivel actual</dt><dd>${esc(nivelActual(a) || "—")}</dd></div><div><dt>Nivel objetivo</dt><dd>${esc(a.nivelObjetivo || "—")}</dd></div>
+      <div><dt>Modalidad preferida</dt><dd>${esc(MODALIDADES[a.modalidadPreferida] || "—")}</dd></div><div><dt>Profesor asignado</dt><dd>${act ? esc(nombreProf(act.profesorId)) + " · " + esc(MODALIDADES[act.modalidad] || "") : "Sin asignar"}</dd></div>
+      <div class="full"><dt>Disponibilidad</dt><dd>${esc(textoFranjas(disp) || "Sin indicar")}</dd></div>
+    </dl>
+    ${a.observacionesCoord ? `<p class="note">${esc(a.observacionesCoord)}</p>` : ""}
+    ${puedeEscribir() ? `<button class="btn sm" type="button" id="editCoord" style="align-self:flex-start">Editar coordinación</button>` : ""}
+    <section class="section"><header><h3>Historial de profesores</h3></header>
+      ${hist.length ? `<ul class="hist">${hist.map(x => `<li><span class="num">${x.desde ? fechaCorta(x.desde) : "—"}</span><span>${esc(nombreProf(x.profesorId))} · ${esc(MODALIDADES[x.modalidad] || "")}</span><span class="muted">${vigente(x) ? "Actual" : "hasta " + fechaCorta(x.hasta)}</span></li>`).join("")}</ul>` : `<p class="empty">Sin asignaciones.</p>`}</section>`;
+}
+
+/** Ficha de profesor. */
+function formProfesor(p){
+  const nuevo = !p, v = p || { nombre: "", especialidades: [], niveles: NIVELES.slice(), modalidades: ["individual", "pareja", "grupo"], capacidadSemanalHoras: 20, observaciones: "", activo: true };
+  const disp = p ? disponibilidadDe(p.id) : null;
+  const m = modal(`
+    <h2>${nuevo ? "Nuevo profesor" : esc(v.esYo ? "Sara (yo)" : v.nombre)}</h2>
+    <form id="fpr" class="fgrid" novalidate>
+      <label class="field">Nombre<input id="r_nombre" value="${esc(v.nombre)}" maxlength="60"${v.esYo ? " disabled" : ""}></label>
+      <label class="field">Capacidad (horas por semana)<input id="r_cap" type="number" min="0" step="0.5" value="${v.capacidadSemanalHoras ?? ""}"></label>
+      <label class="field full">Especialidades<input id="r_esp" value="${esc((v.especialidades || []).join(", "))}" maxlength="200" placeholder="Ej.: conversación, DELE, negocios"></label>
+      <fieldset class="field"><legend>Niveles que imparte</legend><div class="estados">${NIVELES.map(n => `<label class="check"><input type="checkbox" data-niv value="${n}"${(v.niveles || []).includes(n) ? " checked" : ""}> ${n}</label>`).join("")}</div></fieldset>
+      <fieldset class="field"><legend>Modalidades</legend><div class="estados">${Object.entries(MODALIDADES).map(([k, l]) => `<label class="check"><input type="checkbox" data-modp value="${k}"${(v.modalidades || []).includes(k) ? " checked" : ""}> ${l}</label>`).join("")}</div></fieldset>
+      <fieldset class="field full"><legend>Disponibilidad <span class="muted">(hora de España)</span></legend>${editorFranjas("r_disp", disp && disp.franjas)}</fieldset>
+      <label class="field full">Observaciones<textarea id="r_obs" rows="2" maxlength="1000">${esc(v.observaciones || "")}</textarea></label>
+      ${!nuevo && !v.esYo ? `<label class="check full"><input type="checkbox" id="r_baja"${v.activo === false ? " checked" : ""}> Ya no trabaja en la academia (se oculta de las listas)</label>` : ""}
+      <p class="err full" id="f_err" hidden></p>
+      <div class="mfoot full"><button type="button" class="btn ghost" data-cerrar>Cancelar</button><button type="submit" class="btn primary">Guardar</button></div>
+    </form>`);
+  conectarFranjas(m);
+  m.querySelector("#fpr").onsubmit = ev => {
+    ev.preventDefault();
+    const err = m.querySelector("#f_err"), fail = t => { err.textContent = t; err.hidden = false; };
+    const nombre = v.esYo ? v.nombre : m.querySelector("#r_nombre").value.trim(), cap = Number(m.querySelector("#r_cap").value);
+    if (!nombre) return fail("Escribe el nombre del profesor.");
+    if (!Number.isFinite(cap) || cap < 0) return fail("La capacidad tiene que ser un número de horas.");
+    const fr = leerFranjas(m, "r_disp"); if (fr.error) return fail(fr.error);
+    const id = p ? p.id : D.nuevoId("profesores", "pr"), baja = m.querySelector("#r_baja");
+    const datos = { ...(p ? sinId(p) : { esYo: false, academias: [IRENE] }), nombre, capacidadSemanalHoras: cap,
+      especialidades: m.querySelector("#r_esp").value.split(",").map(x => x.trim()).filter(Boolean),
+      niveles: [...m.querySelectorAll("[data-niv]:checked")].map(x => x.value), modalidades: [...m.querySelectorAll("[data-modp]:checked")].map(x => x.value),
+      observaciones: m.querySelector("#r_obs").value.trim(), activo: baja ? !baja.checked : true };
+    const cambios = [...baseInicial().filter(c => !(c.coleccion === "profesores" && c.id === id)), { coleccion: "profesores", id, nuevo: !(S.rincon.profesores || []).some(x => x.id === id), datos }];
+    if (fr.franjas.length || disponibilidadDe(id)) cambios.push({ coleccion: "disponibilidad", id, nuevo: !disponibilidadDe(id), datos: { personaTipo: "profesor", zonaHoraria: "Europe/Madrid", franjas: fr.franjas } });
+    guardar(cambios, nuevo ? "Nuevo profesor" : "Editar profesor", nuevo ? `${nombre} añadido al profesorado.` : "Profesor guardado.");
+  };
+}
+
+/** Carga de cada profesor: alumnos con asignación vigente y horas semanales de su horario. */
+function cargaProfesores(){
+  const al = new Map(alumnadoIrene().map(a => [a.id, a]));
+  return profesores().map(p => {
+    const asig = (S.rincon.asignaciones || []).filter(x => x.profesorId === p.id && vigente(x) && x.destino && (x.destino.tipo !== "alumno" || al.has(x.destino.id)));
+    const alumnos = asig.filter(x => x.destino.tipo === "alumno").map(x => al.get(x.destino.id)).filter(a => a && a.estado !== "finalizado");
+    const h = asig.reduce((t, x) => t + minutosHorario(x.horario), 0) / 60;
+    const cap = Number(p.capacidadSemanalHoras) || 0;
+    return { p, alumnos, horas: h, cap, libre: cap ? Math.max(0, cap - h) : null };
+  });
+}
+
 /* ================= ficha del alumno ================= */
 let fichaAbierta = null, fichaTab = "resumen";
 function abrirFicha(id, tab = "resumen"){ fichaAbierta = id; fichaTab = tab; fichaSucia = false; pintarFicha(true); }
@@ -1211,14 +1448,15 @@ function pintarFicha(forzar = false){
   const st = modelo().porAlumno.get(a.id), ac = acad(a.academiaId);
   const clases = (st ? st.consumos : []).slice().reverse();
   const dadas = clases.filter(c => !c.prevista);
-  const tabs = [["resumen", "Resumen"], ["academica", "Información académica"], ["packs", "Packs"], ["historial", "Historial"], ["seguimiento", "Seguimiento"], ["notas", "Notas"]];
+  const tabs = [["resumen", "Resumen"], ["academica", "Información académica"], ["packs", "Packs"], ["historial", "Historial"], ["seguimiento", "Seguimiento"], ["notas", "Notas"],
+    ...(a.academiaId === IRENE ? [["coordinacion", "Coordinación"]] : [])];
   const fila = c => { const r = modelo().datos.registros.get(c.eventId); return `<li class="clic" data-clase="${esc(c.eventId)}" tabindex="0"><span class="num">${fechaCorta(c.fecha)}</span><span>${cap(c.modalidad)} · ${c.minutos} min${r && r.contenido ? ` · <span class="muted">${esc(r.contenido)}</span>` : ""}${c.nota ? ` · <span class="muted">${esc(c.nota)}</span>` : ""}</span>${etiquetaConsumo(c)}</li>`; };
   let body;
   if (fichaTab === "resumen") body = `
     <dl class="facts">
       <div><dt>Academia</dt><dd>${esc(ac.nombre)}</dd></div><div><dt>Estado</dt><dd>${esc(ESTADOS_ALUMNO[a.estado] || a.estado || "—")}</dd></div>
       <div><dt>Nivel inicial</dt><dd>${esc(a.nivelInicial || "—")}</dd></div><div><dt>Forma de pago</dt><dd>${a.modoPago === "por_clase" ? "Clase a clase" : "Con pack"}</dd></div>
-      <div><dt>Profesora</dt><dd>Sara</dd></div><div><dt>Primera clase en la agenda</dt><dd>${st && st.consumos[0] ? fechaCorta(st.consumos[0].fecha) + " " + st.consumos[0].fecha.slice(0, 4) : "—"}</dd></div>
+      <div><dt>Profesor</dt><dd>${(() => { const x = asignacionActual(a.id); return x ? esc(nombreProf(x.profesorId)) : "Sin asignar"; })()}</dd></div><div><dt>Primera clase en la agenda</dt><dd>${st && st.consumos[0] ? fechaCorta(st.consumos[0].fecha) + " " + st.consumos[0].fecha.slice(0, 4) : "—"}</dd></div>
       <div><dt>Nacionalidad</dt><dd>${esc(a.nacionalidad || "—")}</dd></div><div><dt>Lengua materna</dt><dd>${esc(a.lenguaMaterna || "—")}</dd></div>
       ${a.academiaId === "spanish-with-irene" ? `<div><dt>Clases anteriormente dadas</dt><dd>${st ? st.previasTarifa : 0}${st && st.previasAuto && st.previasAuto >= ((a.clasesPreviasTarifa || {}).clases || 0) ? ' <small class="muted">(de sus packs)</small>' : ""}</dd></div>
       <div><dt>Clases en total contigo</dt><dd>${st ? st.totalTarifa : 0} ${st && st.totalTarifa >= 12 ? "· ya cobras 19/23 €" : "· 17/21 € hasta la 12"}</dd></div>` : ""}
@@ -1237,6 +1475,7 @@ function pintarFicha(forzar = false){
   else if (fichaTab === "academica") body = tabAcademica(a);
   else if (fichaTab === "seguimiento") body = tabSeguimiento(a);
   else if (fichaTab === "notas") body = tabNotas(a);
+  else if (fichaTab === "coordinacion") body = tabCoordinacion(a);
   else if (fichaTab === "historial") body = clases.length ? `<ul class="hist">${clases.map(fila).join("")}</ul>` : `<p class="empty">Sin clases en la agenda.</p>`;
   else body = `<p class="phase" style="align-self:flex-start">Próximo paso</p><p class="muted">La pestaña «${esc(tabs.find(t => t[0] === fichaTab)[1])}» llega en los siguientes pasos.</p>`;
   const antes = $("#drawerRoot .dbody"), scrollFicha = antes && antes.dataset.k === fichaAbierta + "|" + fichaTab ? antes.scrollTop : 0;
@@ -1269,7 +1508,7 @@ function pintarFicha(forzar = false){
 
 /* ================= router y pantallas ================= */
 const VISTAS = { inicio: vInicio, calendario: vCalendario, "profe-resumen": vProfeResumen, "profe-alumnos": vProfeAlumnos, "profe-vincular": vVincular,
-  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura, "profe-seguimiento": vSeguimiento, "profe-actividad": vActividad };
+  "profe-historial": vHistorial, "conf-tipos": vTipos, "conf-academias": vAcademias, "profe-packs": vPacks, "conf-preferencias": vPreferencias, "profe-factura": vFactura, "profe-seguimiento": vSeguimiento, "profe-actividad": vActividad, "coord-resumen": vCoordResumen, "coord-alumnado": vAlumnado, "coord-profesorado": vProfesorado };
 
 /** Agrupa los datos que llegan de golpe (por ejemplo al volver a la ventana) en un solo redibujado. */
 let renderPendiente = false;
@@ -1313,6 +1552,15 @@ function pintar(){
     [["fnivel", "nivel"], ["festado", "estado"], ["fpago", "pago"]].forEach(([id, k]) => v.querySelector("#" + id).onchange = e => { fAl[k] = e.target.value; render(); });
   }
   const ct = v.querySelector("#confirmarTipos"); if (ct) ct.onclick = () => guardar(baseInicial(), "Configuración inicial", "Configuración guardada: academias, tarifas y avisos.");
+  v.querySelectorAll("[data-fcoord]").forEach(el => { el.onclick = () => abrirFicha(el.dataset.fcoord, "coordinacion"); el.onkeydown = e => { if (e.key === "Enter") abrirFicha(el.dataset.fcoord, "coordinacion"); }; });
+  v.querySelectorAll("[data-prof]").forEach(tr => { const pr = () => { const p = profById(tr.dataset.prof); if (p && puedeEscribir()) formProfesor(p); }; tr.onclick = pr; tr.onkeydown = e => { if (e.key === "Enter") pr(); }; });
+  const nc = v.querySelector("#nuevoCoord"); if (nc) nc.onclick = () => formAlumnoCoord(null);
+  const np = v.querySelector("#nuevoProf"); if (np) np.onclick = () => formProfesor(null);
+  const cq = v.querySelector("#cq");
+  if (cq) {
+    cq.oninput = () => { fCo.q = cq.value; render(); };
+    [["cestado", "estado"], ["cnivel", "nivel"], ["cprof", "prof"], ["cmod", "mod"]].forEach(([id, k]) => v.querySelector("#" + id).onchange = e => { fCo[k] = e.target.value; render(); });
+  }
   v.querySelectorAll("[data-seg]").forEach(b => b.onclick = () => { fSeg = b.dataset.seg; render(); });
   v.querySelectorAll("[data-seguim]").forEach(tr => { tr.onclick = () => abrirFicha(tr.dataset.seguim, "seguimiento"); tr.onkeydown = e => { if (e.key === "Enter") abrirFicha(tr.dataset.seguim, "seguimiento"); }; });
   v.querySelectorAll("[data-mesa]").forEach(b => b.onclick = () => { mesAct = sumarMes(mesAct, Number(b.dataset.mesa)); render(); });
@@ -1367,7 +1615,7 @@ $("#loginForm").onsubmit = async ev => {
 async function arrancar(){
   render();
   if (DEMO) {
-    const { agendaDemo } = await import("./demo.js?v=2026-11-28i");
+    const { agendaDemo } = await import("./demo.js?v=2026-11-28j");
     // Guardado de prueba: solo en memoria, se pierde al recargar.
     D = {
       nuevoId: (c, p) => p + "_" + Math.random().toString(36).slice(2, 12),
@@ -1386,7 +1634,7 @@ async function arrancar(){
     S.agenda = agendaDemo(); invalidar(); render(); return;
   }
   try {
-    D = await import("./datos.js?v=2026-11-28i");
+    D = await import("./datos.js?v=2026-11-28j");
     await D.iniciar();
   } catch (e) {
     $("#boot").textContent = "No se pudo conectar. Revisa tu conexión a internet y recarga la página.";
